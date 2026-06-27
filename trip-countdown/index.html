@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Trip Countdown</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@1,9..144,400&family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:      #1A1A2E;
+      --orange:  #C8572E;
+      --yellow:  #C99A30;
+      --indigo:  #6366F1;
+      --pink:    #B85C8A;
+      --green:   #3A8F72;
+      --purple:  #7A5BB0;
+      --muted:   #9CA3AF;
+      --rule:    rgba(255,255,255,0.07);
+      --surface: rgba(255,255,255,0.05);
+      --border:  rgba(255,255,255,0.09);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: #F9FAFB;
+      font-family: 'Space Grotesk', sans-serif;
+      min-height: 100vh;
+      overflow-x: hidden;
+      cursor: none;
+    }
+
+    /* ── Custom cursor ── */
+    .cursor {
+      width: 8px; height: 8px;
+      background: var(--orange);
+      border-radius: 50%;
+      position: fixed;
+      pointer-events: none;
+      z-index: 9999;
+      mix-blend-mode: screen;
+      top: 0; left: 0;
+      transition: background 0.2s ease;
+    }
+
+    /* ── Background image ── */
+    #bg-img {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      opacity: 0;
+      transition: opacity 1.2s ease;
+    }
+    #bg-img::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(12, 11, 28, 0.72);
+    }
+
+    /* ── Blobs ── */
+    .blob {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(90px);
+      opacity: 0.12;
+      pointer-events: none;
+      z-index: 1;
+    }
+    .blob-1 { width: 500px; height: 500px; background: var(--yellow); top: -140px; right: -80px;  animation: drift 8s  ease-in-out infinite; }
+    .blob-2 { width: 320px; height: 320px; background: var(--pink);   bottom: -60px; left: -60px; animation: drift 11s ease-in-out infinite reverse; }
+    .blob-3 { width: 200px; height: 200px; background: var(--indigo); top: 40%; right: 18%;       animation: drift 7s  ease-in-out infinite 2s; }
+    .blob-4 { width: 260px; height: 260px; background: var(--purple); bottom: 18%; left: 30%;     animation: drift 9s  ease-in-out infinite 1s; }
+
+    @keyframes drift {
+      0%, 100% { transform: translate(0,0) scale(1); }
+      33%       { transform: translate(28px,-18px) scale(1.05); }
+      66%       { transform: translate(-18px,14px) scale(0.95); }
+    }
+
+    /* ── Page ── */
+    .page {
+      position: relative;
+      z-index: 2;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: clamp(1.5rem, 4vh, 2.5rem) 1.25rem;
+    }
+
+    /* ── Countdown view ── */
+    .countdown-view {
+      width: 100%;
+      max-width: 620px;
+      text-align: center;
+    }
+
+    .trip-emoji {
+      display: block;
+      font-size: 2.75rem;
+      margin-bottom: 0.6rem;
+      animation: floatEmoji 3s ease-in-out infinite;
+    }
+    @keyframes floatEmoji {
+      0%,100% { transform: translateY(0); }
+      50%      { transform: translateY(-7px); }
+    }
+
+    .trip-name {
+      font-family: 'Fraunces', Georgia, serif;
+      font-style: italic;
+      font-size: clamp(2.4rem, 8vw, 5rem);
+      font-weight: 400;
+      line-height: 1.05;
+      color: #fff;
+      margin-bottom: 0.6rem;
+    }
+
+    .trip-desc {
+      font-size: 0.95rem;
+      color: var(--muted);
+      margin-bottom: 0.75rem;
+      min-height: 1.4em;
+    }
+
+    /* ── Local time badge ── */
+    .local-time {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      font-size: 0.82rem;
+      color: var(--muted);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 0.3rem 0.85rem;
+      margin-bottom: 1.5rem;
+    }
+    .local-time .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      background: var(--green);
+      animation: pulse 2s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.3;} }
+
+    /* ── Countdown grid ── */
+    .countdown-grid {
+      display: flex;
+      justify-content: center;
+      gap: 0.65rem;
+      margin-bottom: 1.75rem;
+      flex-wrap: wrap;
+    }
+
+    .unit {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 1.1rem 0.85rem;
+      min-width: 100px;
+      flex: 1 1 80px;
+      max-width: 150px;
+      transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .unit:hover { transform: translateY(-4px); }
+    .unit-days   { border-top: 3px solid var(--orange); }
+    .unit-hours  { border-top: 3px solid var(--indigo); }
+    .unit-mins   { border-top: 3px solid var(--pink); }
+    .unit-secs   { border-top: 3px solid var(--green); }
+
+    .unit-num {
+      display: block;
+      font-family: 'Fraunces', Georgia, serif;
+      font-style: italic;
+      font-size: clamp(2.5rem, 7vw, 3.5rem);
+      font-weight: 400;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+      color: #fff;
+    }
+    .unit-label {
+      display: block;
+      font-size: 0.65rem;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-top: 0.45rem;
+    }
+
+    /* ── Past / arrived ── */
+    .arrived-msg {
+      font-size: 1.5rem;
+      font-family: 'Fraunces', serif;
+      font-style: italic;
+      color: var(--yellow);
+      margin-bottom: 1.5rem;
+    }
+
+    /* ── Action buttons ── */
+    .actions {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.5rem 1.1rem;
+      border-radius: 0.6rem;
+      border: 1.5px solid var(--border);
+      background: var(--surface);
+      color: #D1D5DB;
+      font-size: 0.82rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: none;
+      transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.15s, background 0.15s;
+      text-decoration: none;
+    }
+    .btn:hover { transform: translateY(-3px) rotate(-1deg); box-shadow: 0 8px 20px -6px rgba(0,0,0,0.5); background: rgba(255,255,255,0.1); color: #fff; }
+    .btn.copied { background: rgba(58,143,114,.2); border-color: var(--green); color: #6ee7b7; }
+
+    /* ── Form card ── */
+    .form-card {
+      background: rgba(15,14,30,0.88);
+      border: 1px solid var(--border);
+      border-radius: 1.5rem;
+      padding: 2rem;
+      width: 100%;
+      max-width: 460px;
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+    }
+
+    .form-heading {
+      font-family: 'Fraunces', Georgia, serif;
+      font-style: italic;
+      font-size: 1.6rem;
+      font-weight: 400;
+      margin-bottom: 1.5rem;
+      color: #fff;
+    }
+
+    .field { margin-bottom: 1rem; }
+    .field:last-of-type { margin-bottom: 0; }
+    .field label {
+      display: flex;
+      align-items: baseline;
+      gap: 0.35rem;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+    .field input,
+    .field select {
+      width: 100%;
+      padding: 0.65rem 0.9rem;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 0.6rem;
+      color: #F9FAFB;
+      font-size: 0.9rem;
+      font-family: 'Space Grotesk', sans-serif;
+      outline: none;
+      transition: border-color 0.2s;
+      cursor: none;
+      -webkit-appearance: none;
+      appearance: none;
+    }
+    .field input:focus,
+    .field select:focus { border-color: rgba(255,255,255,0.3); }
+    .field input::placeholder { color: rgba(255,255,255,0.25); }
+    .field input[type="date"]::-webkit-calendar-picker-indicator,
+    .field input[type="time"]::-webkit-calendar-picker-indicator { filter: invert(0.5); cursor: none; }
+    .field select {
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239CA3AF' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.75rem center;
+      padding-right: 2.25rem;
+    }
+    .field select option { background: #1a1a2e; }
+
+    .field-row { display: flex; gap: 0.65rem; margin-bottom: 1rem; }
+    .field-row .field { flex: 1; margin-bottom: 0; }
+    .field-row .field:last-of-type { margin-bottom: 0; }
+
+    .opt-label {
+      font-size: 0.65rem;
+      color: rgba(255,255,255,.28);
+      text-transform: none;
+      font-weight: 400;
+      letter-spacing: 0;
+    }
+
+    .err { color: #f87171; font-size: 0.8rem; min-height: 1.2em; margin: 0.25rem 0; }
+
+    .btn-submit {
+      width: 100%;
+      margin-top: 0.75rem;
+      padding: 0.75rem;
+      background: var(--orange);
+      color: #fff;
+      border: none;
+      border-radius: 0.75rem;
+      font-size: 0.92rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: none;
+      transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.15s;
+    }
+    .btn-submit:hover { transform: translateY(-3px); box-shadow: 0 8px 20px -6px rgba(0,0,0,0.5); filter: brightness(1.1); }
+
+    a, button, label, input, select { cursor: none; }
+
+    @media (hover: none) {
+      body, a, button, label, input, select { cursor: auto; }
+      .cursor { display: none; }
+    }
+
+    @media (max-width: 480px) {
+      .page { padding: 1.25rem 1rem; }
+      .trip-name { font-size: clamp(2rem, 10vw, 3rem); }
+      .countdown-grid { gap: 0.4rem; }
+      .unit { min-width: 0; padding: 0.85rem 0.5rem; border-radius: 0.75rem; }
+      .unit-num { font-size: clamp(2rem, 9vw, 2.8rem); }
+      .unit-label { font-size: 0.58rem; }
+      .form-card { padding: 1.25rem 1rem; border-radius: 1.25rem; }
+      .field-row { flex-direction: column; gap: 0; margin-bottom: 0; }
+      .field-row .field { margin-bottom: 1rem; }
+      .field-row .field:last-child { margin-bottom: 1rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="cursor" id="cursor"></div>
+<div id="bg-img"></div>
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+<div class="blob blob-3"></div>
+<div class="blob blob-4"></div>
+
+<div class="page" id="page"></div>
+
+<script>
+// ═══════════════════════════════════════════
+//  CURSOR
+// ═══════════════════════════════════════════
+const cur = document.getElementById('cursor');
+document.addEventListener('mousemove', e => {
+  cur.style.left = e.clientX - 4 + 'px';
+  cur.style.top  = e.clientY - 4 + 'px';
+});
+function bindCursor() {}
+
+// ═══════════════════════════════════════════
+//  TIMEZONE LIST
+// ═══════════════════════════════════════════
+const TZ_LIST = [
+  ['── Americas ──', null],
+  ['New York (ET)',         'America/New_York'],
+  ['Chicago (CT)',          'America/Chicago'],
+  ['Denver (MT)',           'America/Denver'],
+  ['Los Angeles (PT)',      'America/Los_Angeles'],
+  ['Toronto',               'America/Toronto'],
+  ['Vancouver',             'America/Vancouver'],
+  ['Mexico City',           'America/Mexico_City'],
+  ['São Paulo',             'America/Sao_Paulo'],
+  ['Buenos Aires',          'America/Argentina/Buenos_Aires'],
+  ['── Europe ──', null],
+  ['London (GMT/BST)',      'Europe/London'],
+  ['Paris (CET)',           'Europe/Paris'],
+  ['Berlin',                'Europe/Berlin'],
+  ['Rome',                  'Europe/Rome'],
+  ['Madrid',                'Europe/Madrid'],
+  ['Amsterdam',             'Europe/Amsterdam'],
+  ['Stockholm',             'Europe/Stockholm'],
+  ['Athens',                'Europe/Athens'],
+  ['Istanbul',              'Europe/Istanbul'],
+  ['Moscow',                'Europe/Moscow'],
+  ['── Africa ──', null],
+  ['Cairo',                 'Africa/Cairo'],
+  ['Lagos',                 'Africa/Lagos'],
+  ['Nairobi',               'Africa/Nairobi'],
+  ['Johannesburg',          'Africa/Johannesburg'],
+  ['── Middle East ──', null],
+  ['Dubai',                 'Asia/Dubai'],
+  ['Riyadh',                'Asia/Riyadh'],
+  ['Tel Aviv',              'Asia/Jerusalem'],
+  ['── Asia ──', null],
+  ['Mumbai / Delhi (IST)',  'Asia/Kolkata'],
+  ['Bangkok (ICT)',         'Asia/Bangkok'],
+  ['Singapore (SGT)',       'Asia/Singapore'],
+  ['Tokyo (JST)',           'Asia/Tokyo'],
+  ['Seoul (KST)',           'Asia/Seoul'],
+  ['Beijing / Shanghai',    'Asia/Shanghai'],
+  ['Hong Kong',             'Asia/Hong_Kong'],
+  ['Taipei',                'Asia/Taipei'],
+  ['── Pacific ──', null],
+  ['Sydney (AEST)',         'Australia/Sydney'],
+  ['Melbourne',             'Australia/Melbourne'],
+  ['Auckland (NZST)',       'Pacific/Auckland'],
+  ['Honolulu (HST)',        'Pacific/Honolulu'],
+  ['── UTC ──', null],
+  ['UTC',                   'UTC'],
+];
+
+function buildTzSelect(selected = '') {
+  let html = `<option value="">— no local time —</option>`;
+  TZ_LIST.forEach(([label, val]) => {
+    if (!val) {
+      html += `<option disabled>${label}</option>`;
+    } else {
+      const s = val === selected ? 'selected' : '';
+      html += `<option value="${val}" ${s}>${label}</option>`;
+    }
+  });
+  return html;
+}
+
+// ═══════════════════════════════════════════
+//  URL PARAMS
+// ═══════════════════════════════════════════
+function getParams() {
+  const p = new URLSearchParams(location.search);
+  return {
+    to:    p.get('to')    || '',   // YYYY-MM-DD
+    at:    p.get('at')    || '',   // HH:MM (optional departure time)
+    label: p.get('label') || '',
+    desc:  p.get('desc')  || '',
+    emoji: p.get('emoji') || '✈️',
+    tz:    p.get('tz')    || '',
+  };
+}
+
+function buildURL(p) {
+  const q = new URLSearchParams({ to: p.to, label: p.label });
+  if (p.at)    q.set('at',    p.at);
+  if (p.desc)  q.set('desc',  p.desc);
+  if (p.emoji && p.emoji !== '✈️') q.set('emoji', p.emoji);
+  if (p.tz)    q.set('tz',    p.tz);
+  return `${location.origin}${location.pathname}?${q}`;
+}
+
+// ═══════════════════════════════════════════
+//  COUNTDOWN MATH
+// ═══════════════════════════════════════════
+// Interpret date+time as a local time in `tz` and return the equivalent UTC Date.
+// Without a timezone, falls back to browser local time.
+function tzToUTC(date, time, tz) {
+  const approx = new Date(`${date}T${time}:00Z`);
+  const fmt = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  });
+  const p = Object.fromEntries(fmt.formatToParts(approx).map(x => [x.type, x.value]));
+  const tzAsUTC = new Date(`${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}:${p.second}Z`);
+  return new Date(approx.getTime() + (approx - tzAsUTC));
+}
+
+function getTarget(to, at, tz) {
+  if (!to) return null;
+  const time = at || '00:00';
+  try {
+    if (tz) return tzToUTC(to, time, tz);
+  } catch(e) {}
+  const d = new Date(`${to}T${time}:00`);
+  return isNaN(d) ? null : d;
+}
+
+function calcCountdown(target) {
+  const diff = target - Date.now();
+  if (diff <= 0) return null;
+  const s = Math.floor(diff / 1000);
+  return {
+    days:  Math.floor(s / 86400),
+    hours: Math.floor((s % 86400) / 3600),
+    mins:  Math.floor((s % 3600) / 60),
+    secs:  s % 60,
+  };
+}
+
+function pad(n) { return String(n).padStart(2, '0'); }
+
+// ═══════════════════════════════════════════
+//  WIKIPEDIA IMAGE FETCH
+// ═══════════════════════════════════════════
+async function fetchWikiImage(query) {
+  try {
+    const r = await fetch(
+      `https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(query)}`
+    );
+    if (!r.ok) return null;
+    const d = await r.json();
+    // Prefer originalimage (full res); fall back to thumbnail
+    let url = d.originalimage?.source;
+    if (!url && d.thumbnail?.source) {
+      url = d.thumbnail.source;
+      // Upscale Wikimedia thumbnail URLs (pattern: /NNNpx-filename)
+      if (/\/thumb\//.test(url)) url = url.replace(/\/\d+px-/, '/1200px-');
+    }
+    return url || null;
+  } catch(e) { return null; }
+}
+
+function setBackground(url) {
+  if (!url) return;
+  // Set directly as CSS background-image — avoids CORS issues that affect <img> preloading
+  const el = document.getElementById('bg-img');
+  el.style.backgroundImage = `url("${url.replace(/"/g, '%22')}")`;
+  el.style.opacity = '1';
+}
+
+// ═══════════════════════════════════════════
+//  LOCAL TIME
+// ═══════════════════════════════════════════
+function getLocalTime(tz) {
+  if (!tz) return null;
+  try {
+    return new Date().toLocaleTimeString('en-US', {
+      timeZone: tz,
+      hour: 'numeric', minute: '2-digit', hour12: true,
+    });
+  } catch(e) { return null; }
+}
+
+function tzCity(tz) {
+  if (!tz) return '';
+  const found = TZ_LIST.find(([,v]) => v === tz);
+  if (!found) return tz.split('/').pop().replace(/_/g, ' ');
+  return found[0].replace(/ \(.*\)$/, '');
+}
+
+// ═══════════════════════════════════════════
+//  HELPERS
+// ═══════════════════════════════════════════
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ═══════════════════════════════════════════
+//  RENDER COUNTDOWN
+// ═══════════════════════════════════════════
+let clockInterval = null;
+
+function renderCountdown(params) {
+  if (clockInterval) clearInterval(clockInterval);
+
+  const target = getTarget(params.to, params.at, params.tz);
+  const c      = target ? calcCountdown(target) : null;
+  const isPast = !c;
+
+  const timeStr = params.at
+    ? ` at ${new Date(`2000-01-01T${params.at}`).toLocaleTimeString('en-US',{hour:'numeric',minute:'2-digit',hour12:true})}`
+    : '';
+
+  let localTimeHTML = '';
+  if (params.tz) {
+    const t    = getLocalTime(params.tz);
+    const city = tzCity(params.tz);
+    if (t) localTimeHTML = `
+      <div class="local-time" id="local-time">
+        <span class="dot"></span>
+        ${esc(t)} local time · ${esc(city)}
+      </div>`;
+  }
+
+  let countdownHTML = '';
+  if (isPast) {
+    countdownHTML = `<p class="arrived-msg">You're there! 🎉</p>`;
+  } else {
+    countdownHTML = `
+      <div class="countdown-grid">
+        <div class="unit unit-days">
+          <span class="unit-num" id="cd-days">${pad(c.days)}</span>
+          <span class="unit-label">Days</span>
+        </div>
+        <div class="unit unit-hours">
+          <span class="unit-num" id="cd-hours">${pad(c.hours)}</span>
+          <span class="unit-label">Hours</span>
+        </div>
+        <div class="unit unit-mins">
+          <span class="unit-num" id="cd-mins">${pad(c.mins)}</span>
+          <span class="unit-label">Mins</span>
+        </div>
+        <div class="unit unit-secs">
+          <span class="unit-num" id="cd-secs">${pad(c.secs)}</span>
+          <span class="unit-label">Secs</span>
+        </div>
+      </div>`;
+  }
+
+  document.getElementById('page').innerHTML = `
+    <div class="countdown-view">
+      <span class="trip-emoji">${esc(params.emoji)}</span>
+      <h1 class="trip-name">${esc(params.label)}</h1>
+      ${params.desc ? `<p class="trip-desc">${esc(params.desc)}</p>` : `<p class="trip-desc" style="color:transparent">·</p>`}
+      ${localTimeHTML}
+      ${countdownHTML}
+      <div class="actions">
+        <button class="btn" id="copy-btn" onclick="copyLink()">📋 Copy link</button>
+        <button class="btn" onclick="showForm()">✏️ Edit</button>
+      </div>
+    </div>
+  `;
+
+  document.title = `${params.emoji} ${params.label} Countdown`;
+  bindCursor();
+
+  // Store current params for copy/edit
+  window._params = params;
+
+  if (!isPast && target) {
+    clockInterval = setInterval(() => {
+      const t2 = calcCountdown(target);
+      if (!t2) { clearInterval(clockInterval); document.getElementById('cd-days').closest('.countdown-grid').outerHTML = `<p class="arrived-msg">You've arrived! 🎉</p>`; return; }
+      document.getElementById('cd-days').textContent  = pad(t2.days);
+      document.getElementById('cd-hours').textContent = pad(t2.hours);
+      document.getElementById('cd-mins').textContent  = pad(t2.mins);
+      document.getElementById('cd-secs').textContent  = pad(t2.secs);
+      if (params.tz) {
+        const ltEl = document.getElementById('local-time');
+        if (ltEl) {
+          const lt   = getLocalTime(params.tz);
+          const city = tzCity(params.tz);
+          ltEl.innerHTML = `<span class="dot"></span>${esc(lt)} local time · ${esc(city)}`;
+        }
+      }
+    }, 1000);
+  }
+
+  // Background image
+  fetchWikiImage(params.label).then(setBackground);
+}
+
+// ═══════════════════════════════════════════
+//  COPY LINK
+// ═══════════════════════════════════════════
+function copyLink() {
+  const url = buildURL(window._params);
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.getElementById('copy-btn');
+    btn.textContent = '✓ Copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = '📋 Copy link'; btn.classList.remove('copied'); }, 2200);
+  });
+}
+
+// ═══════════════════════════════════════════
+//  RENDER FORM
+// ═══════════════════════════════════════════
+function showForm(pre = {}) {
+  if (clockInterval) clearInterval(clockInterval);
+
+  document.getElementById('page').innerHTML = `
+    <div class="form-card">
+      <h2 class="form-heading">where are you headed?</h2>
+
+      <div class="field-row">
+        <div class="field" style="flex:0 0 68px">
+          <label>Emoji</label>
+          <input type="text" id="f-emoji" placeholder="✈️" maxlength="4" value="${esc(pre.emoji || '✈️')}">
+        </div>
+        <div class="field">
+          <label>Destination</label>
+          <input type="text" id="f-label" placeholder="Tokyo" value="${esc(pre.label || '')}">
+        </div>
+      </div>
+
+      <div class="field-row">
+        <div class="field">
+          <label>Date</label>
+          <input type="date" id="f-date" value="${esc(pre.to || '')}" min="${new Date().toISOString().slice(0,10)}">
+        </div>
+        <div class="field">
+          <label>Time <span class="opt-label">(optional)</span></label>
+          <input type="time" id="f-time" value="${esc(pre.at || '')}">
+        </div>
+      </div>
+
+      <div class="field">
+        <label>Description <span class="opt-label">(optional)</span></label>
+        <input type="text" id="f-desc" placeholder="Winter adventure" value="${esc(pre.desc || '')}">
+      </div>
+
+      <div class="field">
+        <label>Destination timezone <span class="opt-label">(shows local time)</span></label>
+        <select id="f-tz">${buildTzSelect(pre.tz || '')}</select>
+      </div>
+
+      <p class="err" id="f-err"></p>
+
+      <button class="btn-submit" onclick="submitForm()">Generate countdown →</button>
+    </div>
+  `;
+
+  bindCursor();
+}
+
+// ═══════════════════════════════════════════
+//  SUBMIT FORM
+// ═══════════════════════════════════════════
+function submitForm() {
+  const label = document.getElementById('f-label').value.trim();
+  const to    = document.getElementById('f-date').value;
+  const at    = document.getElementById('f-time').value;
+  const desc  = document.getElementById('f-desc').value.trim();
+  const emoji = document.getElementById('f-emoji').value.trim() || '✈️';
+  const tz    = document.getElementById('f-tz').value;
+  const err   = document.getElementById('f-err');
+
+  if (!label) { err.textContent = 'Give your destination a name.'; return; }
+  if (!to)    { err.textContent = 'Pick a departure date.'; return; }
+
+  const params = { to, at, label, desc, emoji, tz };
+  history.pushState({}, '', buildURL(params));
+  renderCountdown(params);
+}
+
+// ═══════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════
+const params = getParams();
+if (params.to && params.label) {
+  renderCountdown(params);
+} else {
+  showForm(params);
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Focus Timer</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@1,9..144,400&family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:      #1A1A2E;
+      --orange:  #C8572E;
+      --yellow:  #C99A30;
+      --indigo:  #6366F1;
+      --pink:    #B85C8A;
+      --green:   #3A8F72;
+      --purple:  #7A5BB0;
+      --muted:   #9CA3AF;
+      --rule:    rgba(255,255,255,0.07);
+      --surface: rgba(255,255,255,0.05);
+      --border:  rgba(255,255,255,0.09);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: #F9FAFB;
+      font-family: 'Space Grotesk', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 2rem 1rem;
+      cursor: none;
+      overflow-x: hidden;
+    }
+
+    /* ── Custom cursor ── */
+    .cursor {
+      width: 8px; height: 8px;
+      background: var(--orange);
+      border-radius: 50%;
+      position: fixed;
+      pointer-events: none;
+      z-index: 9999;
+      mix-blend-mode: screen;
+      top: 0; left: 0;
+    }
+
+    /* ── Blobs ── */
+    .blob {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(90px);
+      opacity: 0.14;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .blob-1 { width: 500px; height: 500px; background: var(--yellow); top: -140px; right: -80px;  animation: drift 8s  ease-in-out infinite; }
+    .blob-2 { width: 320px; height: 320px; background: var(--pink);   bottom: -60px; left: -60px; animation: drift 11s ease-in-out infinite reverse; }
+    .blob-3 { width: 200px; height: 200px; background: var(--indigo); top: 45%;  right: 22%;     animation: drift 7s  ease-in-out infinite 2s; }
+    .blob-4 { width: 260px; height: 260px; background: var(--purple); bottom: 20%; left: 32%;    animation: drift 9s  ease-in-out infinite 1s; }
+
+    @keyframes drift {
+      0%, 100% { transform: translate(0,0) scale(1); }
+      33%       { transform: translate(28px,-18px) scale(1.05); }
+      66%       { transform: translate(-18px,14px) scale(0.95); }
+    }
+
+    /* ── Main container ── */
+    .container {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 400px;
+    }
+
+    /* ── Title ── */
+    .app-title {
+      text-align: center;
+      font-size: 0.7rem;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1.5rem;
+    }
+
+    /* ── Duration control ── */
+    .dur-ctrl {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 1rem;
+      margin-bottom: 0.75rem;
+      transition: opacity 0.25s;
+    }
+    .dur-ctrl.hidden { opacity: 0; pointer-events: none; }
+
+    .dur-btn {
+      width: 34px; height: 34px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--muted);
+      font-size: 1.1rem;
+      cursor: none;
+      font-family: inherit;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.15s, color 0.15s, transform 0.2s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .dur-btn:hover { background: rgba(255,255,255,0.1); color: #fff; transform: scale(1.15); }
+
+    .dur-display {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--muted);
+      min-width: 55px;
+      text-align: center;
+    }
+
+    /* ── Progress ring + timer ── */
+    .ring-wrap {
+      position: relative;
+      width: 240px; height: 240px;
+      margin: 0 auto 1.5rem;
+    }
+    .ring-svg {
+      position: absolute;
+      inset: 0;
+      width: 100%; height: 100%;
+      overflow: visible;
+    }
+    .ring-track { fill: none; stroke: var(--border); stroke-width: 3; }
+    .ring-fill  {
+      fill: none;
+      stroke: var(--yellow);
+      stroke-width: 3;
+      stroke-linecap: round;
+      transition: stroke-dashoffset 0.95s linear;
+    }
+    .timer-inner {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.3rem;
+    }
+    .timer-digits {
+      font-family: 'Fraunces', Georgia, serif;
+      font-style: italic;
+      font-size: 3.8rem;
+      font-weight: 400;
+      color: var(--yellow);
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+    .timer-sub {
+      font-size: 0.72rem;
+      color: var(--muted);
+      font-weight: 400;
+    }
+
+    /* ── Controls ── */
+    .controls {
+      display: flex;
+      gap: 0.6rem;
+      justify-content: center;
+      margin-bottom: 2rem;
+    }
+    .btn {
+      padding: 0.65rem 1.5rem;
+      border: none;
+      border-radius: 0.6rem;
+      font-size: 0.85rem;
+      font-weight: 600;
+      font-family: inherit;
+      cursor: none;
+      transition: transform 0.2s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.15s;
+    }
+    .btn:hover { transform: translateY(-3px); box-shadow: 0 8px 20px -6px rgba(0,0,0,0.5); }
+    .btn:active { transform: translateY(0); box-shadow: none; }
+    .btn-primary { background: var(--orange); color: #fff; min-width: 110px; }
+    .btn-ghost {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      color: var(--muted);
+    }
+    .btn-ghost:hover { color: #fff; background: rgba(255,255,255,0.1); }
+
+    /* ── Sound panel ── */
+    .sound-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 1rem;
+      padding: 1.25rem;
+    }
+    .panel-title {
+      font-size: 0.68rem;
+      font-weight: 600;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 0.85rem;
+    }
+    .sound-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.6rem 0.85rem;
+      border-radius: 0.6rem;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid rgba(255,255,255,0.05);
+      margin-bottom: 0.4rem;
+      transition: background 0.15s;
+    }
+    .sound-row:last-child { margin-bottom: 0; }
+    .sound-row:hover { background: rgba(255,255,255,0.06); }
+    .sound-icon { font-size: 1rem; width: 1.3rem; text-align: center; flex-shrink: 0; }
+    .sound-name { flex: 1; font-size: 0.84rem; font-weight: 500; color: #E5E7EB; }
+
+    /* Toggle */
+    .toggle { position: relative; width: 36px; height: 20px; flex-shrink: 0; cursor: none; }
+    .toggle input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .toggle-track {
+      position: absolute; inset: 0;
+      background: rgba(255,255,255,0.1);
+      border-radius: 10px;
+      cursor: none;
+      transition: background 0.2s;
+    }
+    .toggle-track::after {
+      content: '';
+      position: absolute;
+      left: 3px; top: 3px;
+      width: 14px; height: 14px;
+      background: var(--muted);
+      border-radius: 50%;
+      transition: transform 0.2s, background 0.2s;
+    }
+    .toggle input:checked + .toggle-track { background: var(--yellow); }
+    .toggle input:checked + .toggle-track::after { transform: translateX(16px); background: #1A1A2E; }
+
+    /* Volume slider */
+    .vol {
+      -webkit-appearance: none; appearance: none;
+      width: 70px; height: 3px;
+      border-radius: 2px;
+      background: rgba(255,255,255,0.1);
+      outline: none;
+      cursor: none;
+      flex-shrink: 0;
+    }
+    .vol::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 13px; height: 13px;
+      border-radius: 50%;
+      background: var(--yellow);
+      cursor: none;
+    }
+    .vol::-moz-range-thumb {
+      width: 13px; height: 13px;
+      border-radius: 50%; background: var(--yellow); border: none;
+    }
+
+    a, button, label, input { cursor: none; }
+
+    @media (hover: none) {
+      body, a, button, label, input { cursor: auto; }
+      .cursor { display: none; }
+    }
+
+    @media (max-width: 480px) {
+      body { padding: 1.25rem 0.75rem; }
+      .ring-wrap { width: 190px; height: 190px; }
+      .timer-digits { font-size: 3rem; }
+      .sound-row { padding: 0.5rem 0.65rem; gap: 0.5rem; }
+      .sound-name { font-size: 0.8rem; }
+      .vol { width: 55px; }
+      .controls { margin-bottom: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="cursor" id="cursor"></div>
+<div class="blob blob-1"></div>
+<div class="blob blob-2"></div>
+<div class="blob blob-3"></div>
+<div class="blob blob-4"></div>
+
+<div class="container">
+
+  <p class="app-title">Focus Timer</p>
+
+  <div class="dur-ctrl" id="dur-ctrl">
+    <button class="dur-btn" onclick="changeDur(-1)">−</button>
+    <span class="dur-display" id="dur-display">25 min</span>
+    <button class="dur-btn" onclick="changeDur(+1)">+</button>
+  </div>
+
+  <div class="ring-wrap">
+    <svg class="ring-svg" viewBox="0 0 240 240">
+      <circle class="ring-track" cx="120" cy="120" r="108"/>
+      <circle class="ring-fill" id="ring-fill" cx="120" cy="120" r="108"
+              stroke-dasharray="678.6" stroke-dashoffset="0"
+              transform="rotate(-90 120 120)"/>
+    </svg>
+    <div class="timer-inner">
+      <div class="timer-digits" id="timer">25:00</div>
+      <div class="timer-sub"    id="timer-sub">Press Start</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button class="btn btn-ghost"   onclick="resetTimer()">Reset</button>
+    <button class="btn btn-primary" id="start-btn" onclick="toggleTimer()">Start</button>
+  </div>
+
+  <div class="sound-panel">
+    <div class="panel-title">Sounds</div>
+
+    <div class="sound-row">
+      <span class="sound-icon">🌧</span>
+      <span class="sound-name">Rain</span>
+      <label class="toggle"><input type="checkbox" id="rain-t" onchange="toggleSnd('rain')"><span class="toggle-track"></span></label>
+      <input class="vol" type="range" id="rain-v" min="0" max="1" step="0.05" value="0.4" oninput="setVol('rain',this.value)">
+    </div>
+
+    <div class="sound-row">
+      <span class="sound-icon">🌊</span>
+      <span class="sound-name">Ocean</span>
+      <label class="toggle"><input type="checkbox" id="ocean-t" onchange="toggleSnd('ocean')"><span class="toggle-track"></span></label>
+      <input class="vol" type="range" id="ocean-v" min="0" max="1" step="0.05" value="0.4" oninput="setVol('ocean',this.value)">
+    </div>
+
+    <div class="sound-row">
+      <span class="sound-icon">🔥</span>
+      <span class="sound-name">Fireplace</span>
+      <label class="toggle"><input type="checkbox" id="fire-t" onchange="toggleSnd('fire')"><span class="toggle-track"></span></label>
+      <input class="vol" type="range" id="fire-v" min="0" max="1" step="0.05" value="0.4" oninput="setVol('fire',this.value)">
+    </div>
+
+    <div class="sound-row">
+      <span class="sound-icon">📻</span>
+      <span class="sound-name">Brown noise</span>
+      <label class="toggle"><input type="checkbox" id="brown-t" onchange="toggleSnd('brown')"><span class="toggle-track"></span></label>
+      <input class="vol" type="range" id="brown-v" min="0" max="1" step="0.05" value="0.4" oninput="setVol('brown',this.value)">
+    </div>
+
+    <div class="sound-row">
+      <span class="sound-icon">🎵</span>
+      <span class="sound-name">Lo-fi beats</span>
+      <label class="toggle"><input type="checkbox" id="lofi-t" onchange="toggleSnd('lofi')"><span class="toggle-track"></span></label>
+      <input class="vol" type="range" id="lofi-v" min="0" max="1" step="0.05" value="0.4" oninput="setVol('lofi',this.value)">
+    </div>
+
+    <div class="sound-row">
+      <span class="sound-icon">🎹</span>
+      <span class="sound-name">Ambient drone</span>
+      <label class="toggle"><input type="checkbox" id="drone-t" onchange="toggleSnd('drone')"><span class="toggle-track"></span></label>
+      <input class="vol" type="range" id="drone-v" min="0" max="1" step="0.05" value="0.35" oninput="setVol('drone',this.value)">
+    </div>
+  </div>
+
+</div>
+
+<script>
+// ═══════════════════════════════════════════
+//  CURSOR
+// ═══════════════════════════════════════════
+const cur = document.getElementById('cursor');
+document.addEventListener('mousemove', e => {
+  cur.style.left = e.clientX - 4 + 'px';
+  cur.style.top  = e.clientY - 4 + 'px';
+});
+
+// ═══════════════════════════════════════════
+//  TIMER STATE
+// ═══════════════════════════════════════════
+const CIRCUMF = 678.6;
+let durMins  = 25;
+let timeLeft = 25 * 60;
+let running  = false;
+let iid      = null;
+
+// ═══════════════════════════════════════════
+//  AUDIO
+// ═══════════════════════════════════════════
+let AC          = null;
+let snds        = {};
+let selectedSnd = null; // id of the toggled-on sound (plays only while timer runs)
+
+function ensureAudio() {
+  if (AC) { if (AC.state === 'suspended') AC.resume(); return; }
+  AC = new (window.AudioContext || window.webkitAudioContext)();
+  snds = {
+    rain:  new RainSound(AC),
+    ocean: new OceanSound(AC),
+    fire:  new FireplaceSound(AC),
+    brown: new BrownNoiseSound(AC),
+    lofi:  new LofiBeats(AC),
+    drone: new DroneSound(AC),
+  };
+}
+
+// ─── Shared helpers ──────────────────────
+function pinkBuf(ctx, secs = 4) {
+  const sr = ctx.sampleRate, len = sr * secs;
+  const buf = ctx.createBuffer(2, len, sr);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = buf.getChannelData(ch);
+    let b0=0,b1=0,b2=0,b3=0,b4=0,b5=0,b6=0;
+    for (let i = 0; i < len; i++) {
+      const w = Math.random()*2-1;
+      b0=.99886*b0+w*.0555179; b1=.99332*b1+w*.0750759;
+      b2=.96900*b2+w*.1538520; b3=.86650*b3+w*.3104856;
+      b4=.55000*b4+w*.5329522; b5=-.7616*b5-w*.0168980;
+      d[i]=(b0+b1+b2+b3+b4+b5+b6+w*.5362)/6; b6=w*.115926;
+    }
+  }
+  return buf;
+}
+
+function loopSrc(ctx, buf) {
+  const src = ctx.createBufferSource();
+  src.buffer = buf; src.loop = true; src.start();
+  return src;
+}
+
+function mGain(ctx) {
+  const g = ctx.createGain(); g.gain.value = 0;
+  g.connect(ctx.destination); return g;
+}
+
+function fade(g, on, vol, tc = 0.6) {
+  const t = g.context.currentTime;
+  g.gain.cancelScheduledValues(t);
+  g.gain.setTargetAtTime(on ? vol : 0, t, tc);
+}
+
+// ─── Rain ────────────────────────────────
+class RainSound {
+  constructor(ctx) {
+    this.g = mGain(ctx);
+    const f = ctx.createBiquadFilter();
+    f.type = 'bandpass'; f.frequency.value = 900; f.Q.value = 0.35;
+    loopSrc(ctx, pinkBuf(ctx)).connect(f); f.connect(this.g);
+  }
+  setActive(on, vol) { fade(this.g, on, vol); }
+  setVolume(vol) { this.g.gain.setTargetAtTime(vol, this.g.context.currentTime, 0.1); }
+}
+
+// ─── Ocean ────────────────────────────────
+class OceanSound {
+  constructor(ctx) {
+    this.g = mGain(ctx);
+    const wg = ctx.createGain(); wg.gain.value = 0.5; wg.connect(this.g);
+    const f  = ctx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 1400;
+    loopSrc(ctx, pinkBuf(ctx)).connect(f); f.connect(wg);
+    const lfo = ctx.createOscillator(), lfog = ctx.createGain();
+    lfo.frequency.value = 0.13; lfog.gain.value = 0.4;
+    lfo.connect(lfog); lfog.connect(wg.gain); lfo.start();
+  }
+  setActive(on, vol) { fade(this.g, on, vol); }
+  setVolume(vol) { this.g.gain.setTargetAtTime(vol, this.g.context.currentTime, 0.1); }
+}
+
+// ─── Fireplace ────────────────────────────
+class FireplaceSound {
+  constructor(ctx) {
+    this.ctx = ctx; this.active = false;
+    this.g   = mGain(ctx);
+    const rg = ctx.createGain(); rg.gain.value = 0.5;
+    const rf = ctx.createBiquadFilter(); rf.type = 'lowpass'; rf.frequency.value = 350;
+    loopSrc(ctx, pinkBuf(ctx)).connect(rf); rf.connect(rg); rg.connect(this.g);
+    this._loop();
+  }
+  _loop() {
+    const go = () => {
+      if (this.active && this.ctx.state === 'running') this._pop();
+      setTimeout(go, 80 + Math.random() * 500);
+    };
+    go();
+  }
+  _pop() {
+    const t = this.ctx.currentTime, dur = 0.008 + Math.random() * 0.04;
+    const sr = this.ctx.sampleRate, len = Math.ceil(sr * dur);
+    const buf = this.ctx.createBuffer(1, len, sr);
+    const d   = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = Math.random()*2-1;
+    const src = this.ctx.createBufferSource(), f = this.ctx.createBiquadFilter(), g = this.ctx.createGain();
+    src.buffer = buf; f.type = 'bandpass'; f.frequency.value = 1500 + Math.random()*3000; f.Q.value = 2;
+    g.gain.setValueAtTime(0.25 + Math.random()*0.45, t);
+    g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+    src.connect(f); f.connect(g); g.connect(this.g);
+    src.start(t); src.stop(t + dur + 0.01);
+  }
+  setActive(on, vol) { this.active = on; fade(this.g, on, vol); }
+  setVolume(vol) { this.g.gain.setTargetAtTime(vol, this.ctx.currentTime, 0.1); }
+}
+
+// ─── Brown noise ─────────────────────────
+class BrownNoiseSound {
+  constructor(ctx) {
+    this.g = mGain(ctx);
+    const sr = ctx.sampleRate, len = sr * 4;
+    const buf = ctx.createBuffer(1, len, sr), d = buf.getChannelData(0);
+    let last = 0;
+    for (let i = 0; i < len; i++) {
+      const w = Math.random()*2-1;
+      last = (last + 0.02 * w) / 1.02;
+      d[i] = last * 3.5;
+    }
+    const boost = ctx.createGain(); boost.gain.value = 2.5;
+    loopSrc(ctx, buf).connect(boost); boost.connect(this.g);
+  }
+  setActive(on, vol) { fade(this.g, on, vol); }
+  setVolume(vol) { this.g.gain.setTargetAtTime(vol, this.g.context.currentTime, 0.1); }
+}
+
+// ─── Lo-fi beats ─────────────────────────
+class LofiBeats {
+  constructor(ctx) {
+    this.ctx = ctx; this.bpm = 82; this.step = 0;
+    this.nextTime = ctx.currentTime; this.active = false; this.chordIdx = 0;
+    this.g   = mGain(ctx);
+    this.dry = ctx.createGain(); this.dry.gain.value = 1; this.dry.connect(this.g);
+    this.rev = this._mkRev();
+    this.kick  = [1,0,0,0,0,0,1,0,1,0,0,0,0,0,0,0];
+    this.snare = [0,0,0,0,1,0,0,0,0,0,0,0,1,0,0,0];
+    this.hat   = [1,0,1,0,1,0,1,0,1,0,1,0,1,0,1,0];
+    this.chords = [
+      [220,261.63,329.63,392],[174.61,220,261.63,329.63],
+      [261.63,329.63,392,493.88],[196,246.94,293.66,369.99],
+    ];
+    this._sched();
+  }
+  _mkRev() {
+    const sr=this.ctx.sampleRate,len=Math.floor(sr*2);
+    const buf=this.ctx.createBuffer(2,len,sr);
+    for(let c=0;c<2;c++){const d=buf.getChannelData(c);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.8);}
+    const conv=this.ctx.createConvolver(); conv.buffer=buf;
+    const wet=this.ctx.createGain(); wet.gain.value=0.3;
+    conv.connect(wet); wet.connect(this.g); return conv;
+  }
+  _sched() {
+    const tick=()=>{
+      if(this.active){
+        while(this.nextTime<this.ctx.currentTime+0.12){
+          this._do(this.step,this.nextTime);
+          this.nextTime+=(60/this.bpm)/4;
+          this.step=(this.step+1)%16;
+        }
+      }
+      setTimeout(tick,25);
+    };
+    tick();
+  }
+  _do(s,t){
+    if(this.kick[s]) this._k(t);
+    if(this.snare[s]) this._sn(t);
+    if(this.hat[s]) this._h(t,s%4===0?0.22:0.07);
+    if(s===0){this._pad(t,this.chords[this.chordIdx%this.chords.length]);this.chordIdx++;}
+  }
+  _k(t){const o=this.ctx.createOscillator(),g=this.ctx.createGain();o.type='sine';o.frequency.setValueAtTime(130,t);o.frequency.exponentialRampToValueAtTime(40,t+0.45);g.gain.setValueAtTime(0.9,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.45);o.connect(g);g.connect(this.dry);o.start(t);o.stop(t+0.5);}
+  _sn(t){const sr=this.ctx.sampleRate,len=Math.floor(sr*0.15),buf=this.ctx.createBuffer(1,len,sr),d=buf.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1;const src=this.ctx.createBufferSource(),f=this.ctx.createBiquadFilter(),g=this.ctx.createGain();src.buffer=buf;f.type='bandpass';f.frequency.value=3200;f.Q.value=0.9;g.gain.setValueAtTime(0.45,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.15);const b=this.ctx.createOscillator(),bg=this.ctx.createGain();b.frequency.value=185;bg.gain.setValueAtTime(0.22,t);bg.gain.exponentialRampToValueAtTime(0.001,t+0.07);b.connect(bg);bg.connect(this.dry);b.start(t);b.stop(t+0.1);src.connect(f);f.connect(g);g.connect(this.dry);src.start(t);src.stop(t+0.18);}
+  _h(t,vol){const sr=this.ctx.sampleRate,len=Math.floor(sr*0.035),buf=this.ctx.createBuffer(1,len,sr),d=buf.getChannelData(0);for(let i=0;i<len;i++)d[i]=Math.random()*2-1;const src=this.ctx.createBufferSource(),f=this.ctx.createBiquadFilter(),g=this.ctx.createGain();src.buffer=buf;f.type='highpass';f.frequency.value=8500;g.gain.setValueAtTime(vol,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.04);src.connect(f);f.connect(g);g.connect(this.dry);src.start(t);src.stop(t+0.05);}
+  _pad(t,freqs){
+    const bar=(60/this.bpm)*4;
+    freqs.forEach((freq,i)=>{[1,2].forEach(oct=>{const o=this.ctx.createOscillator(),g=this.ctx.createGain();o.type=oct===1?'sine':'triangle';o.frequency.value=freq*oct;o.detune.value=(i-1.5)*8+(oct-1)*4;const v=oct===1?0.055:0.018;g.gain.setValueAtTime(0.001,t);g.gain.linearRampToValueAtTime(v,t+0.9);g.gain.setValueAtTime(v,t+bar-0.6);g.gain.linearRampToValueAtTime(0.001,t+bar);o.connect(g);g.connect(this.rev);o.start(t);o.stop(t+bar+0.1);});});
+  }
+  setActive(on,vol){this.active=on;if(on&&this.nextTime<this.ctx.currentTime)this.nextTime=this.ctx.currentTime;fade(this.g,on,vol);}
+  setVolume(vol){this.g.gain.setTargetAtTime(vol,this.ctx.currentTime,0.1);}
+}
+
+// ─── Ambient drone ────────────────────────
+class DroneSound {
+  constructor(ctx) {
+    this.ctx = ctx;
+    this.g   = mGain(ctx);
+    const sr=ctx.sampleRate,len=Math.floor(sr*3),rbuf=ctx.createBuffer(2,len,sr);
+    for(let c=0;c<2;c++){const d=rbuf.getChannelData(c);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2);}
+    const rev=ctx.createConvolver(); rev.buffer=rbuf;
+    const wet=ctx.createGain(); wet.gain.value=0.5; rev.connect(wet); wet.connect(this.g);
+    [110,130.81,164.81,196,220].forEach((freq,i)=>{
+      const o=ctx.createOscillator(),o2=ctx.createOscillator();
+      o.type='sine'; o2.type='triangle';
+      o.frequency.value=freq; o2.frequency.value=freq*2;
+      o.detune.value=(i-2)*5; o2.detune.value=(i-2)*7;
+      const lfo=ctx.createOscillator(),lfog=ctx.createGain();
+      lfo.frequency.value=0.25+i*0.06; lfog.gain.value=0.015;
+      lfo.connect(lfog);
+      const g1=ctx.createGain(),g2=ctx.createGain();
+      g1.gain.value=0.07; lfog.connect(g1.gain);
+      g2.gain.value=0.025;
+      o.connect(g1);g1.connect(rev);o2.connect(g2);g2.connect(rev);
+      lfo.start();o.start();o2.start();
+    });
+  }
+  setActive(on,vol){fade(this.g,on,vol,1.2);}
+  setVolume(vol){this.g.gain.setTargetAtTime(vol,this.ctx.currentTime,0.1);}
+}
+
+// ═══════════════════════════════════════════
+//  DING
+// ═══════════════════════════════════════════
+function playDing() {
+  if (!AC) return;
+  [523.25,659.25,783.99].forEach((f,i)=>{
+    const o=AC.createOscillator(),g=AC.createGain();
+    const t=AC.currentTime+i*0.18;
+    o.type='sine';o.frequency.value=f;
+    g.gain.setValueAtTime(0.35,t);g.gain.exponentialRampToValueAtTime(0.001,t+1.6);
+    o.connect(g);g.connect(AC.destination);o.start(t);o.stop(t+1.7);
+  });
+}
+
+// ═══════════════════════════════════════════
+//  TIMER LOGIC
+// ═══════════════════════════════════════════
+function changeDur(delta) {
+  if (running) return;
+  durMins  = Math.max(1, Math.min(120, durMins + delta));
+  timeLeft = durMins * 60;
+  document.getElementById('dur-display').textContent = `${durMins} min`;
+  render();
+}
+
+function toggleTimer() {
+  ensureAudio();
+  running ? pause() : start();
+}
+
+function activeSnd(on) {
+  if (!selectedSnd || !snds[selectedSnd]) return;
+  const vol = parseFloat(document.getElementById(`${selectedSnd}-v`).value);
+  snds[selectedSnd].setActive(on, vol);
+}
+
+function start() {
+  running = true;
+  document.getElementById('start-btn').textContent = 'Pause';
+  document.getElementById('dur-ctrl').classList.add('hidden');
+  activeSnd(true);
+  iid = setInterval(() => { timeLeft--; render(); if (timeLeft <= 0) onDone(); }, 1000);
+}
+
+function pause() {
+  running = false;
+  document.getElementById('start-btn').textContent = 'Resume';
+  document.getElementById('dur-ctrl').classList.add('hidden');
+  clearInterval(iid);
+  activeSnd(false);
+}
+
+function resetTimer() {
+  clearInterval(iid); running = false; timeLeft = durMins * 60;
+  document.getElementById('start-btn').textContent = 'Start';
+  document.getElementById('dur-ctrl').classList.remove('hidden');
+  document.getElementById('timer-sub').textContent = 'Press Start';
+  activeSnd(false);
+  render();
+}
+
+function onDone() {
+  clearInterval(iid); running = false; timeLeft = 0;
+  document.getElementById('start-btn').textContent = 'Start again';
+  document.getElementById('dur-ctrl').classList.remove('hidden');
+  document.getElementById('timer-sub').textContent = '✓ Session complete!';
+  activeSnd(false);
+  render(); playDing();
+}
+
+// ═══════════════════════════════════════════
+//  SOUND CONTROLS
+// ═══════════════════════════════════════════
+const ALL_SNDS = ['rain','ocean','fire','brown','lofi','drone'];
+
+function toggleSnd(id) {
+  ensureAudio();
+  const on = document.getElementById(`${id}-t`).checked;
+  // Deactivate any currently playing sound
+  if (selectedSnd && snds[selectedSnd]) snds[selectedSnd].setActive(false, 0);
+  // Uncheck all other toggles
+  ALL_SNDS.forEach(sid => {
+    if (sid !== id) document.getElementById(`${sid}-t`).checked = false;
+  });
+  selectedSnd = on ? id : null;
+  // Only start audio if timer is already running
+  if (on && running) activeSnd(true);
+}
+
+function setVol(id, val) {
+  if (!AC || !running || selectedSnd !== id) return;
+  snds[id].setVolume(parseFloat(val));
+}
+
+// ═══════════════════════════════════════════
+//  RENDER
+// ═══════════════════════════════════════════
+function fmt(s) {
+  return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`;
+}
+function render() {
+  document.getElementById('timer').textContent = fmt(timeLeft);
+  const pct = 1 - timeLeft / (durMins * 60);
+  document.getElementById('ring-fill').style.strokeDashoffset = CIRCUMF * (1 - pct);
+  if (running) {
+    const el = durMins * 60 - timeLeft;
+    document.getElementById('timer-sub').textContent =
+      `${String(Math.floor(el/60)).padStart(2,'0')}:${String(el%60).padStart(2,'0')} elapsed`;
+  }
+  document.title = running ? `${fmt(timeLeft)} · Focus` : 'Focus Timer';
+}
+
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space' && e.target === document.body) { e.preventDefault(); toggleTimer(); }
+});
+
+render();
+</script>
+</body>
+</html>
