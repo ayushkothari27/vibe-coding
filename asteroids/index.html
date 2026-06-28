@@ -673,10 +673,6 @@ function drawHUD() {
   ctx.font = '700 22px "Space Grotesk", sans-serif';
   ctx.fillStyle = C.white; ctx.textAlign = 'left';
   ctx.fillText(String(score).padStart(6, '0'), 22, 38);
-  // Level
-  ctx.font = '400 13px "Space Grotesk", sans-serif';
-  ctx.fillStyle = C.muted;
-  ctx.fillText(`LVL ${level}`, 22, 58);
   // Lives
   for (let i = 0; i < lives; i++) drawShipIcon(W - 22 - i * 27, 30, 9);
 }
