@@ -1,0 +1,916 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Flaggle — Daily Flag Puzzle</title>
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:     #1A1A2E;
+      --card:   #22223a;
+      --orange: #C8572E;
+      --yellow: #C99A30;
+      --green:  #3A8F72;
+      --indigo: #6366F1;
+      --muted:  #9CA3AF;
+      --border: rgba(255,255,255,0.09);
+      --text:   #F9FAFB;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Space Grotesk', sans-serif;
+      min-height: 100svh;
+      padding: 0 0 3rem;
+      cursor: none;
+    }
+
+    /* ─── cursor ─── */
+    .cursor {
+      width: 8px; height: 8px;
+      background: var(--orange);
+      border-radius: 50%;
+      position: fixed;
+      pointer-events: none;
+      z-index: 9999;
+      transform: translate(-50%, -50%);
+    }
+    @media (hover: none) { body { cursor: auto; } .cursor { display: none; } }
+    a, button, input, [role="option"] { cursor: none; }
+
+    /* ─── layout ─── */
+    .wrap {
+      max-width: 460px;
+      margin: 0 auto;
+      padding: 0 1.25rem;
+    }
+
+    /* ─── header ─── */
+    header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      padding: 1.4rem 0 1rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 1.4rem;
+    }
+    .logo {
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .logo span { color: var(--yellow); }
+    .day-tag {
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--muted);
+    }
+
+    /* ─── flag card ─── */
+    .flag-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 1.2rem 1.2rem 1rem;
+      text-align: center;
+      margin-bottom: 0.75rem;
+    }
+    .flag-wrap {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 190px;
+      margin-bottom: 0.85rem;
+    }
+    #flag-img {
+      max-height: 180px;
+      max-width: 100%;
+      object-fit: contain;
+      border-radius: 5px;
+      transition: filter 0.7s ease;
+      display: block;
+    }
+    .blur-label {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-bottom: 0.2rem;
+    }
+    .pips {
+      display: flex;
+      gap: 6px;
+      justify-content: center;
+    }
+    .pip {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--border);
+      border: 1px solid rgba(255,255,255,0.15);
+    }
+    .pip.used   { background: var(--orange); border-color: var(--orange); }
+    .pip.won    { background: var(--green);  border-color: var(--green); }
+    .pip.active { border-color: var(--yellow); }
+
+    /* ─── reveal banner ─── */
+    .reveal-banner {
+      display: none;
+      align-items: center;
+      gap: 0.6rem;
+      background: rgba(58,143,114,0.12);
+      border: 1px solid rgba(58,143,114,0.3);
+      border-radius: 9px;
+      padding: 0.7rem 0.9rem;
+      margin-bottom: 1rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+    .reveal-banner.fail {
+      background: rgba(200,87,46,0.1);
+      border-color: rgba(200,87,46,0.3);
+    }
+    .reveal-banner.show { display: flex; }
+
+    /* ─── input ─── */
+    .input-row {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+    .input-wrap {
+      flex: 1;
+      position: relative;
+    }
+    #guess-input {
+      width: 100%;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 0.65rem 0.9rem;
+      font-family: inherit;
+      font-size: 1rem;        /* ≥16px prevents iOS zoom on focus */
+      color: var(--text);
+      outline: none;
+      transition: border-color 0.18s;
+    }
+    #guess-input:focus { border-color: rgba(255,255,255,0.25); }
+    #guess-input:disabled { opacity: 0.4; }
+
+    .guess-btn {
+      flex-shrink: 0;
+      background: var(--orange);
+      color: #fff;
+      border: none;
+      border-radius: 9px;
+      padding: 0.65rem 1.1rem;
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      transition: opacity 0.15s, transform 0.12s;
+    }
+    .guess-btn:hover:not(:disabled) { opacity: 0.88; transform: translateY(-1px); }
+    .guess-btn:active:not(:disabled) { transform: translateY(0); }
+    .guess-btn:disabled { opacity: 0.35; }
+
+    /* ─── autocomplete dropdown ─── */
+    #dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
+      background: #2a2a47;
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      overflow: hidden;
+      z-index: 100;
+      display: none;
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    #dropdown.open { display: block; }
+    .dd-item {
+      padding: 0.55rem 0.9rem;
+      font-size: 0.88rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: background 0.1s;
+    }
+    .dd-item:hover, .dd-item.focused {
+      background: rgba(255,255,255,0.08);
+    }
+    .dd-flag { font-size: 1.1rem; flex-shrink: 0; }
+    .dd-name { flex: 1; }
+    .dd-match { color: var(--yellow); font-weight: 600; }
+
+    /* ─── guesses ─── */
+    .guesses { display: flex; flex-direction: column; gap: 0.5rem; }
+
+    .guess-row {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.65rem 0.9rem;
+      display: grid;
+      grid-template-columns: 1.6rem 1fr auto;
+      gap: 0.5rem;
+      align-items: center;
+      animation: slideIn 0.25s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-8px) scale(0.97); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    .guess-row.correct { border-color: rgba(58,143,114,0.45); }
+
+    .gr-flag  { font-size: 1.25rem; text-align: center; }
+    .gr-name  { font-size: 0.88rem; font-weight: 500; }
+
+    .gr-right {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 3px;
+      min-width: 90px;
+    }
+    .gr-dist {
+      font-size: 0.78rem;
+      color: var(--muted);
+      white-space: nowrap;
+    }
+    .gr-bar-wrap {
+      width: 90px;
+      height: 5px;
+      background: rgba(255,255,255,0.07);
+      border-radius: 3px;
+      overflow: hidden;
+    }
+    .gr-bar-fill {
+      height: 100%;
+      border-radius: 3px;
+      transition: width 0.5s ease 0.1s;
+    }
+    .gr-dir {
+      font-size: 1rem;
+      line-height: 1;
+    }
+
+    /* ─── share ─── */
+    .share-row {
+      display: none;
+      margin-top: 1rem;
+      gap: 0.5rem;
+    }
+    .share-row.show { display: flex; }
+    .share-btn {
+      flex: 1;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 9px;
+      padding: 0.65rem;
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text);
+      transition: background 0.15s, border-color 0.15s;
+    }
+    .share-btn:hover { background: rgba(255,255,255,0.07); border-color: rgba(255,255,255,0.18); }
+    .share-btn.copied { color: var(--green); border-color: rgba(58,143,114,0.4); }
+
+    /* ─── how to ─── */
+    .how {
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.6;
+      text-align: center;
+      margin-top: 1.4rem;
+    }
+    .how strong { color: var(--text); }
+
+    /* ─── mobile ─── */
+    @media (max-width: 480px) {
+      .wrap        { padding: 0 1rem; }
+      .flag-wrap   { min-height: 160px; }
+      #flag-img    { max-height: 150px; }
+      .flag-card   { padding: 1rem 0.9rem 0.8rem; }
+      .gr-bar-wrap { width: 68px; }
+      .gr-right    { min-width: 72px; }
+      .gr-name     { font-size: 0.82rem; }
+    }
+    /* safe-area padding for notched phones */
+    body { padding-bottom: max(3rem, env(safe-area-inset-bottom)); }
+  </style>
+</head>
+<body>
+
+<div class="cursor" id="cursor"></div>
+
+<div class="wrap">
+
+  <header>
+    <div class="logo">🌍 Flag<span>gle</span></div>
+    <div class="day-tag" id="day-tag">—</div>
+  </header>
+
+  <!-- Flag -->
+  <div class="flag-card">
+    <div class="flag-wrap">
+      <img id="flag-img" src="" alt="Today's flag" draggable="false">
+    </div>
+    <div class="blur-label" id="blur-label"></div>
+    <div class="pips" id="pips"></div>
+  </div>
+
+  <!-- Reveal banner -->
+  <div class="reveal-banner" id="reveal-banner"></div>
+
+  <!-- Input -->
+  <div class="input-row" id="input-row">
+    <div class="input-wrap">
+      <input
+        id="guess-input"
+        type="text"
+        placeholder="Country name…"
+        autocomplete="off"
+        autocorrect="off"
+        autocapitalize="off"
+        spellcheck="false"
+      >
+      <div id="dropdown"></div>
+    </div>
+    <button class="guess-btn" id="guess-btn">Guess</button>
+  </div>
+
+  <!-- Guess history -->
+  <div class="guesses" id="guesses"></div>
+
+  <!-- Share -->
+  <div class="share-row" id="share-row">
+    <button class="share-btn" id="share-btn">📋 Copy results</button>
+  </div>
+
+  <!-- How to play -->
+  <p class="how">
+    Guess the country from its flag — <strong>6 chances</strong>.<br>
+    Each wrong guess reveals the flag more and shows how far away you were.
+  </p>
+
+</div>
+
+<script>
+// ─────────────────────────────────────────────────
+//  COUNTRY DATA  (code, name, lat°, lon°)
+// ─────────────────────────────────────────────────
+const COUNTRIES = [
+  // Africa
+  {c:'dz',n:'Algeria',            lat:28.0,  lon:1.7   },
+  {c:'ao',n:'Angola',             lat:-11.2, lon:17.9  },
+  {c:'bj',n:'Benin',              lat:9.3,   lon:2.3   },
+  {c:'bw',n:'Botswana',           lat:-22.3, lon:24.7  },
+  {c:'bf',n:'Burkina Faso',       lat:12.4,  lon:-1.6  },
+  {c:'bi',n:'Burundi',            lat:-3.4,  lon:30.0  },
+  {c:'cv',n:'Cape Verde',         lat:16.0,  lon:-24.0 },
+  {c:'cm',n:'Cameroon',           lat:3.9,   lon:11.5  },
+  {c:'cf',n:'Central African Republic', lat:6.6, lon:20.9},
+  {c:'td',n:'Chad',               lat:15.5,  lon:18.7  },
+  {c:'km',n:'Comoros',            lat:-11.6, lon:43.3  },
+  {c:'cd',n:'DR Congo',           lat:-4.0,  lon:21.8  },
+  {c:'cg',n:'Republic of the Congo', lat:-0.2, lon:15.8},
+  {c:'dj',n:'Djibouti',           lat:11.8,  lon:42.6  },
+  {c:'eg',n:'Egypt',              lat:26.8,  lon:30.8  },
+  {c:'gq',n:'Equatorial Guinea',  lat:1.7,   lon:10.3  },
+  {c:'er',n:'Eritrea',            lat:15.2,  lon:39.8  },
+  {c:'sz',n:'Eswatini',           lat:-26.5, lon:31.5  },
+  {c:'et',n:'Ethiopia',           lat:8.6,   lon:39.6  },
+  {c:'ga',n:'Gabon',              lat:-0.8,  lon:11.6  },
+  {c:'gm',n:'Gambia',             lat:13.4,  lon:-15.3 },
+  {c:'gh',n:'Ghana',              lat:7.9,   lon:-1.0  },
+  {c:'gn',n:'Guinea',             lat:11.0,  lon:-10.9 },
+  {c:'gw',n:'Guinea-Bissau',      lat:11.8,  lon:-15.2 },
+  {c:'ci',n:'Ivory Coast',        lat:7.5,   lon:-5.5  },
+  {c:'ke',n:'Kenya',              lat:0.0,   lon:37.9  },
+  {c:'ls',n:'Lesotho',            lat:-29.6, lon:28.2  },
+  {c:'lr',n:'Liberia',            lat:6.4,   lon:-9.4  },
+  {c:'ly',n:'Libya',              lat:26.3,  lon:17.2  },
+  {c:'mg',n:'Madagascar',         lat:-20.3, lon:44.7  },
+  {c:'mw',n:'Malawi',             lat:-13.3, lon:34.3  },
+  {c:'ml',n:'Mali',               lat:17.6,  lon:-2.0  },
+  {c:'mr',n:'Mauritania',         lat:21.0,  lon:-10.9 },
+  {c:'mu',n:'Mauritius',          lat:-20.3, lon:57.6  },
+  {c:'ma',n:'Morocco',            lat:31.8,  lon:-7.1  },
+  {c:'mz',n:'Mozambique',         lat:-18.7, lon:35.5  },
+  {c:'na',n:'Namibia',            lat:-22.9, lon:18.5  },
+  {c:'ne',n:'Niger',              lat:17.6,  lon:8.1   },
+  {c:'ng',n:'Nigeria',            lat:9.1,   lon:8.7   },
+  {c:'rw',n:'Rwanda',             lat:-2.0,  lon:29.9  },
+  {c:'st',n:'São Tomé and Príncipe', lat:0.2, lon:6.6  },
+  {c:'sn',n:'Senegal',            lat:14.5,  lon:-14.5 },
+  {c:'sc',n:'Seychelles',         lat:-4.7,  lon:55.5  },
+  {c:'sl',n:'Sierra Leone',       lat:8.5,   lon:-11.8 },
+  {c:'so',n:'Somalia',            lat:5.2,   lon:46.2  },
+  {c:'za',n:'South Africa',       lat:-30.6, lon:22.9  },
+  {c:'ss',n:'South Sudan',        lat:6.9,   lon:31.3  },
+  {c:'sd',n:'Sudan',              lat:15.6,  lon:32.5  },
+  {c:'tz',n:'Tanzania',           lat:-6.4,  lon:34.9  },
+  {c:'tg',n:'Togo',               lat:8.6,   lon:0.8   },
+  {c:'tn',n:'Tunisia',            lat:33.9,  lon:9.6   },
+  {c:'ug',n:'Uganda',             lat:1.4,   lon:32.3  },
+  {c:'zm',n:'Zambia',             lat:-13.1, lon:27.8  },
+  {c:'zw',n:'Zimbabwe',           lat:-19.0, lon:29.9  },
+  // Americas
+  {c:'ag',n:'Antigua and Barbuda', lat:17.1, lon:-61.8 },
+  {c:'ar',n:'Argentina',          lat:-38.4, lon:-63.6 },
+  {c:'bs',n:'Bahamas',            lat:25.0,  lon:-77.4 },
+  {c:'bb',n:'Barbados',           lat:13.2,  lon:-59.5 },
+  {c:'bz',n:'Belize',             lat:17.2,  lon:-88.5 },
+  {c:'bo',n:'Bolivia',            lat:-16.3, lon:-63.6 },
+  {c:'br',n:'Brazil',             lat:-10.8, lon:-53.1 },
+  {c:'ca',n:'Canada',             lat:60.0,  lon:-95.0 },
+  {c:'cl',n:'Chile',              lat:-35.7, lon:-71.5 },
+  {c:'co',n:'Colombia',           lat:4.6,   lon:-74.3 },
+  {c:'cr',n:'Costa Rica',         lat:9.7,   lon:-83.8 },
+  {c:'cu',n:'Cuba',               lat:22.0,  lon:-79.5 },
+  {c:'dm',n:'Dominica',           lat:15.4,  lon:-61.4 },
+  {c:'do',n:'Dominican Republic', lat:18.7,  lon:-70.2 },
+  {c:'ec',n:'Ecuador',            lat:-1.8,  lon:-78.2 },
+  {c:'sv',n:'El Salvador',        lat:13.8,  lon:-88.9 },
+  {c:'gd',n:'Grenada',            lat:12.1,  lon:-61.7 },
+  {c:'gt',n:'Guatemala',          lat:15.8,  lon:-90.2 },
+  {c:'gy',n:'Guyana',             lat:4.9,   lon:-59.0 },
+  {c:'ht',n:'Haiti',              lat:19.0,  lon:-72.3 },
+  {c:'hn',n:'Honduras',           lat:15.2,  lon:-86.2 },
+  {c:'jm',n:'Jamaica',            lat:18.1,  lon:-77.3 },
+  {c:'mx',n:'Mexico',             lat:23.6,  lon:-102.6},
+  {c:'ni',n:'Nicaragua',          lat:12.9,  lon:-85.2 },
+  {c:'pa',n:'Panama',             lat:8.5,   lon:-80.8 },
+  {c:'py',n:'Paraguay',           lat:-23.4, lon:-58.4 },
+  {c:'pe',n:'Peru',               lat:-9.2,  lon:-75.0 },
+  {c:'kn',n:'Saint Kitts and Nevis', lat:17.3, lon:-62.7},
+  {c:'lc',n:'Saint Lucia',        lat:13.9,  lon:-60.9 },
+  {c:'vc',n:'Saint Vincent and the Grenadines', lat:12.9, lon:-61.3},
+  {c:'sr',n:'Suriname',           lat:3.9,   lon:-56.0 },
+  {c:'tt',n:'Trinidad and Tobago', lat:10.7, lon:-61.2 },
+  {c:'us',n:'United States',      lat:37.1,  lon:-95.7 },
+  {c:'uy',n:'Uruguay',            lat:-32.5, lon:-55.8 },
+  {c:'ve',n:'Venezuela',          lat:8.0,   lon:-66.6 },
+  // Asia
+  {c:'af',n:'Afghanistan',        lat:33.9,  lon:67.7  },
+  {c:'am',n:'Armenia',            lat:40.1,  lon:45.0  },
+  {c:'az',n:'Azerbaijan',         lat:40.1,  lon:47.6  },
+  {c:'bh',n:'Bahrain',            lat:26.0,  lon:50.6  },
+  {c:'bd',n:'Bangladesh',         lat:23.7,  lon:90.4  },
+  {c:'bt',n:'Bhutan',             lat:27.5,  lon:90.4  },
+  {c:'bn',n:'Brunei',             lat:4.5,   lon:114.7 },
+  {c:'kh',n:'Cambodia',           lat:12.6,  lon:104.9 },
+  {c:'cn',n:'China',              lat:35.9,  lon:104.2 },
+  {c:'cy',n:'Cyprus',             lat:35.1,  lon:33.4  },
+  {c:'ge',n:'Georgia',            lat:42.3,  lon:43.4  },
+  {c:'in',n:'India',              lat:20.6,  lon:79.0  },
+  {c:'id',n:'Indonesia',          lat:-0.8,  lon:113.9 },
+  {c:'ir',n:'Iran',               lat:32.4,  lon:53.7  },
+  {c:'iq',n:'Iraq',               lat:33.2,  lon:43.7  },
+  {c:'il',n:'Israel',             lat:31.5,  lon:34.8  },
+  {c:'jp',n:'Japan',              lat:36.2,  lon:138.3 },
+  {c:'jo',n:'Jordan',             lat:30.6,  lon:36.2  },
+  {c:'kz',n:'Kazakhstan',         lat:48.0,  lon:66.9  },
+  {c:'kw',n:'Kuwait',             lat:29.3,  lon:47.5  },
+  {c:'kg',n:'Kyrgyzstan',         lat:41.2,  lon:74.8  },
+  {c:'la',n:'Laos',               lat:19.9,  lon:102.5 },
+  {c:'lb',n:'Lebanon',            lat:33.9,  lon:35.5  },
+  {c:'my',n:'Malaysia',           lat:4.2,   lon:108.0 },
+  {c:'mv',n:'Maldives',           lat:3.2,   lon:73.2  },
+  {c:'mn',n:'Mongolia',           lat:46.9,  lon:103.8 },
+  {c:'mm',n:'Myanmar',            lat:21.9,  lon:95.9  },
+  {c:'np',n:'Nepal',              lat:28.4,  lon:84.1  },
+  {c:'kp',n:'North Korea',        lat:40.3,  lon:127.5 },
+  {c:'om',n:'Oman',               lat:21.0,  lon:57.0  },
+  {c:'pk',n:'Pakistan',           lat:30.4,  lon:69.3  },
+  {c:'ps',n:'Palestine',          lat:31.9,  lon:35.2  },
+  {c:'ph',n:'Philippines',        lat:12.9,  lon:121.8 },
+  {c:'qa',n:'Qatar',              lat:25.4,  lon:51.2  },
+  {c:'sa',n:'Saudi Arabia',       lat:24.0,  lon:45.1  },
+  {c:'sg',n:'Singapore',          lat:1.4,   lon:103.8 },
+  {c:'kr',n:'South Korea',        lat:35.9,  lon:127.8 },
+  {c:'lk',n:'Sri Lanka',          lat:7.9,   lon:80.8  },
+  {c:'sy',n:'Syria',              lat:34.8,  lon:38.9  },
+  {c:'tw',n:'Taiwan',             lat:23.7,  lon:121.0 },
+  {c:'tj',n:'Tajikistan',         lat:38.9,  lon:71.3  },
+  {c:'th',n:'Thailand',           lat:15.9,  lon:100.9 },
+  {c:'tl',n:'Timor-Leste',        lat:-8.9,  lon:125.7 },
+  {c:'tm',n:'Turkmenistan',       lat:39.0,  lon:59.6  },
+  {c:'ae',n:'United Arab Emirates', lat:24.0, lon:54.0 },
+  {c:'uz',n:'Uzbekistan',         lat:41.4,  lon:64.6  },
+  {c:'vn',n:'Vietnam',            lat:14.1,  lon:108.3 },
+  {c:'ye',n:'Yemen',              lat:15.6,  lon:48.5  },
+  // Europe
+  {c:'al',n:'Albania',            lat:41.2,  lon:20.2  },
+  {c:'ad',n:'Andorra',            lat:42.5,  lon:1.5   },
+  {c:'at',n:'Austria',            lat:47.5,  lon:14.6  },
+  {c:'by',n:'Belarus',            lat:53.7,  lon:28.0  },
+  {c:'be',n:'Belgium',            lat:50.5,  lon:4.5   },
+  {c:'ba',n:'Bosnia and Herzegovina', lat:43.9, lon:17.7},
+  {c:'bg',n:'Bulgaria',           lat:42.7,  lon:25.5  },
+  {c:'hr',n:'Croatia',            lat:45.1,  lon:15.2  },
+  {c:'cz',n:'Czech Republic',     lat:49.8,  lon:15.5  },
+  {c:'dk',n:'Denmark',            lat:56.3,  lon:9.5   },
+  {c:'ee',n:'Estonia',            lat:58.6,  lon:25.0  },
+  {c:'fi',n:'Finland',            lat:64.0,  lon:26.0  },
+  {c:'fr',n:'France',             lat:46.2,  lon:2.2   },
+  {c:'de',n:'Germany',            lat:51.2,  lon:10.5  },
+  {c:'gr',n:'Greece',             lat:39.1,  lon:21.8  },
+  {c:'hu',n:'Hungary',            lat:47.2,  lon:19.5  },
+  {c:'is',n:'Iceland',            lat:64.9,  lon:-19.0 },
+  {c:'ie',n:'Ireland',            lat:53.4,  lon:-8.2  },
+  {c:'it',n:'Italy',              lat:41.9,  lon:12.6  },
+  {c:'xk',n:'Kosovo',             lat:42.6,  lon:20.9  },
+  {c:'lv',n:'Latvia',             lat:56.9,  lon:24.6  },
+  {c:'li',n:'Liechtenstein',      lat:47.1,  lon:9.6   },
+  {c:'lt',n:'Lithuania',          lat:55.2,  lon:23.9  },
+  {c:'lu',n:'Luxembourg',         lat:49.8,  lon:6.1   },
+  {c:'mt',n:'Malta',              lat:35.9,  lon:14.4  },
+  {c:'md',n:'Moldova',            lat:47.4,  lon:28.4  },
+  {c:'mc',n:'Monaco',             lat:43.7,  lon:7.4   },
+  {c:'me',n:'Montenegro',         lat:42.7,  lon:19.4  },
+  {c:'nl',n:'Netherlands',        lat:52.1,  lon:5.3   },
+  {c:'mk',n:'North Macedonia',    lat:41.6,  lon:21.7  },
+  {c:'no',n:'Norway',             lat:65.0,  lon:13.0  },
+  {c:'pl',n:'Poland',             lat:52.1,  lon:19.1  },
+  {c:'pt',n:'Portugal',           lat:39.4,  lon:-8.2  },
+  {c:'ro',n:'Romania',            lat:45.9,  lon:25.0  },
+  {c:'ru',n:'Russia',             lat:61.5,  lon:105.3 },
+  {c:'sm',n:'San Marino',         lat:43.9,  lon:12.5  },
+  {c:'rs',n:'Serbia',             lat:44.0,  lon:21.0  },
+  {c:'sk',n:'Slovakia',           lat:48.7,  lon:19.7  },
+  {c:'si',n:'Slovenia',           lat:46.2,  lon:14.8  },
+  {c:'es',n:'Spain',              lat:40.5,  lon:-3.7  },
+  {c:'se',n:'Sweden',             lat:62.2,  lon:17.0  },
+  {c:'ch',n:'Switzerland',        lat:47.0,  lon:8.2   },
+  {c:'tr',n:'Turkey',             lat:39.1,  lon:35.2  },
+  {c:'ua',n:'Ukraine',            lat:49.0,  lon:31.4  },
+  {c:'gb',n:'United Kingdom',     lat:55.4,  lon:-3.4  },
+  {c:'va',n:'Vatican City',       lat:41.9,  lon:12.5  },
+  // Oceania
+  {c:'au',n:'Australia',          lat:-25.3, lon:133.8 },
+  {c:'fj',n:'Fiji',               lat:-18.1, lon:179.4 },
+  {c:'ki',n:'Kiribati',           lat:-3.4,  lon:-168.7},
+  {c:'mh',n:'Marshall Islands',   lat:7.1,   lon:171.2 },
+  {c:'fm',n:'Micronesia',         lat:7.4,   lon:150.6 },
+  {c:'nr',n:'Nauru',              lat:-0.5,  lon:166.9 },
+  {c:'nz',n:'New Zealand',        lat:-40.9, lon:174.9 },
+  {c:'pw',n:'Palau',              lat:7.5,   lon:134.6 },
+  {c:'pg',n:'Papua New Guinea',   lat:-6.3,  lon:143.9 },
+  {c:'ws',n:'Samoa',              lat:-13.8, lon:-172.1},
+  {c:'sb',n:'Solomon Islands',    lat:-9.6,  lon:160.2 },
+  {c:'to',n:'Tonga',              lat:-21.2, lon:-175.2},
+  {c:'tv',n:'Tuvalu',             lat:-7.5,  lon:178.7 },
+  {c:'vu',n:'Vanuatu',            lat:-15.4, lon:166.9 },
+];
+
+// ─────────────────────────────────────────────────
+//  DAILY ANSWER (seeded by date)
+// ─────────────────────────────────────────────────
+// Deterministic shuffle with LCG so same day = same country
+function seededShuffle(arr, seed) {
+  const a = arr.slice();
+  let s = seed >>> 0;
+  for (let i = a.length - 1; i > 0; i--) {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    const j = s % (i + 1);
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+const DAILY_LIST = seededShuffle(COUNTRIES, 0xF1A6616);
+
+const TODAY = new Date().toISOString().slice(0, 10);
+const EPOCH = new Date('2025-01-01T00:00:00Z');
+const DAY_N = Math.floor((Date.now() - EPOCH) / 86400000) + 1;
+const ANSWER = DAILY_LIST[DAY_N % DAILY_LIST.length];
+const MAX_G  = 6;
+
+// ─────────────────────────────────────────────────
+//  GEO MATH
+// ─────────────────────────────────────────────────
+function haversine(a, b) {
+  const R  = 6371;
+  const p1 = a.lat * Math.PI / 180, p2 = b.lat * Math.PI / 180;
+  const dp = (b.lat - a.lat) * Math.PI / 180;
+  const dl = (b.lon - a.lon) * Math.PI / 180;
+  const x  = Math.sin(dp/2)**2 + Math.cos(p1)*Math.cos(p2)*Math.sin(dl/2)**2;
+  return Math.round(2 * R * Math.asin(Math.sqrt(x)));
+}
+
+function bearing(from, to) {
+  const p1 = from.lat * Math.PI / 180, p2 = to.lat * Math.PI / 180;
+  const dl = (to.lon - from.lon) * Math.PI / 180;
+  const y  = Math.sin(dl) * Math.cos(p2);
+  const x  = Math.cos(p1)*Math.sin(p2) - Math.sin(p1)*Math.cos(p2)*Math.cos(dl);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+const DIR_ARROWS = ['⬆️','↗️','➡️','↘️','⬇️','↙️','⬅️','↖️'];
+function dirArrow(deg) { return DIR_ARROWS[Math.round(deg / 45) % 8]; }
+
+function closePct(km) { return Math.max(0, Math.min(100, Math.round((1 - km / 20000) * 100))); }
+
+function barColor(pct) {
+  if (pct >= 80) return '#3A8F72';
+  if (pct >= 50) return '#C99A30';
+  if (pct >= 25) return '#C8572E';
+  return '#9f2e0f';
+}
+
+// ─────────────────────────────────────────────────
+//  FLAG EMOJI
+// ─────────────────────────────────────────────────
+function flagEmoji(code) {
+  if (code === 'xk') return '🏳️'; // Kosovo — no unicode flag
+  return [...code.toUpperCase()].map(ch =>
+    String.fromCodePoint(0x1F1E6 + ch.charCodeAt(0) - 65)
+  ).join('');
+}
+
+// ─────────────────────────────────────────────────
+//  STATE
+// ─────────────────────────────────────────────────
+const STORE_KEY = `flaggle_${TODAY}`;
+let state = JSON.parse(localStorage.getItem(STORE_KEY) || 'null') || {
+  guesses: [],   // [{code, name, dist, pct, dir, correct}]
+  done: false,
+  won:  false,
+};
+
+// ─────────────────────────────────────────────────
+//  DOM REFS
+// ─────────────────────────────────────────────────
+const $flagImg    = document.getElementById('flag-img');
+const $pips       = document.getElementById('pips');
+const $blurLabel  = document.getElementById('blur-label');
+const $banner     = document.getElementById('reveal-banner');
+const $inputRow   = document.getElementById('input-row');
+const $input      = document.getElementById('guess-input');
+const $dropdown   = document.getElementById('dropdown');
+const $btn        = document.getElementById('guess-btn');
+const $guesses    = document.getElementById('guesses');
+const $shareRow   = document.getElementById('share-row');
+const $shareBtn   = document.getElementById('share-btn');
+
+// ─────────────────────────────────────────────────
+//  BLUR SCHEDULE
+// ─────────────────────────────────────────────────
+const BLURS = [26, 20, 14, 9, 5, 2, 0]; // index = # wrong guesses
+
+function currentBlur() {
+  if (state.done) return 0;
+  const wrong = state.guesses.filter(g => !g.correct).length;
+  return BLURS[Math.min(wrong, BLURS.length - 1)];
+}
+
+// ─────────────────────────────────────────────────
+//  RENDER
+// ─────────────────────────────────────────────────
+function renderFlag() {
+  $flagImg.src    = `https://flagcdn.com/w640/${ANSWER.c}.png`;
+  $flagImg.style.filter = `blur(${currentBlur()}px)`;
+  document.getElementById('day-tag').textContent = `#${DAY_N}`;
+}
+
+function renderPips() {
+  $pips.innerHTML = '';
+  const wrong = state.guesses.filter(g => !g.correct).length;
+  for (let i = 0; i < MAX_G; i++) {
+    const pip = document.createElement('div');
+    pip.className = 'pip';
+    if (state.won && state.guesses[i]?.correct) pip.classList.add('won');
+    else if (i < wrong)                         pip.classList.add('used');
+    else if (i === wrong && !state.done)        pip.classList.add('active');
+    $pips.appendChild(pip);
+  }
+  const left = MAX_G - wrong;
+  $blurLabel.textContent = state.done ? '' : `${left} guess${left !== 1 ? 'es' : ''} remaining`;
+}
+
+function renderGuessRow(g, animate = false) {
+  const row = document.createElement('div');
+  row.className = 'guess-row' + (g.correct ? ' correct' : '') + (animate ? ' new' : '');
+
+  const pct = g.pct;
+  row.innerHTML = `
+    <div class="gr-flag">${flagEmoji(g.code)}</div>
+    <div class="gr-name">${g.name}</div>
+    <div class="gr-right">
+      <div class="gr-dist">${g.correct ? '✅ 0 km' : `${g.dir} ${g.dist.toLocaleString()} km`}</div>
+      <div class="gr-bar-wrap">
+        <div class="gr-bar-fill" style="width:${pct}%; background:${barColor(pct)}"></div>
+      </div>
+    </div>
+  `;
+  return row;
+}
+
+function renderGuesses(animate = false) {
+  $guesses.innerHTML = '';
+  state.guesses.forEach((g, i) => {
+    const row = renderGuessRow(g, animate && i === state.guesses.length - 1);
+    $guesses.appendChild(row);
+  });
+}
+
+function renderBanner() {
+  if (!state.done) { $banner.classList.remove('show'); return; }
+  $banner.classList.add('show');
+  if (state.won) {
+    const idx = state.guesses.length;
+    $banner.className = 'reveal-banner show';
+    $banner.innerHTML = `✅ ${ANSWER.n} — got it in ${idx}/${MAX_G}!`;
+  } else {
+    $banner.className = 'reveal-banner fail show';
+    $banner.innerHTML = `The flag was <strong>${flagEmoji(ANSWER.c)} ${ANSWER.n}</strong>`;
+  }
+}
+
+function renderShare() {
+  if (!state.done) { $shareRow.classList.remove('show'); return; }
+  $shareRow.classList.add('show');
+}
+
+function renderInput() {
+  if (state.done) {
+    $input.disabled = true;
+    $btn.disabled   = true;
+    $input.placeholder = 'Game over';
+  }
+}
+
+function render(animateLast = false) {
+  renderFlag();
+  renderPips();
+  renderGuesses(animateLast);
+  renderBanner();
+  renderShare();
+  renderInput();
+}
+
+// ─────────────────────────────────────────────────
+//  AUTOCOMPLETE
+// ─────────────────────────────────────────────────
+const SORTED = [...COUNTRIES].sort((a, b) => a.n.localeCompare(b.n));
+const guessedCodes = new Set(state.guesses.map(g => g.code));
+
+let ddItems   = [];
+let focusIdx  = -1;
+
+function highlight(text, q) {
+  const i = text.toLowerCase().indexOf(q.toLowerCase());
+  if (i < 0 || !q) return text;
+  return text.slice(0, i) +
+    `<span class="dd-match">${text.slice(i, i + q.length)}</span>` +
+    text.slice(i + q.length);
+}
+
+function openDropdown(q) {
+  ddItems = SORTED
+    .filter(c => c.n.toLowerCase().includes(q.toLowerCase()) && !guessedCodes.has(c.c))
+    .slice(0, 8);
+  focusIdx = -1;
+
+  if (!ddItems.length || !q.trim()) {
+    $dropdown.classList.remove('open');
+    $dropdown.innerHTML = '';
+    return;
+  }
+
+  $dropdown.innerHTML = ddItems.map((c, i) => `
+    <div class="dd-item" data-i="${i}" role="option" tabindex="-1">
+      <span class="dd-flag">${flagEmoji(c.c)}</span>
+      <span class="dd-name">${highlight(c.n, q)}</span>
+    </div>
+  `).join('');
+
+  $dropdown.classList.add('open');
+  $dropdown.querySelectorAll('.dd-item').forEach(el => {
+    el.addEventListener('mousedown', e => {
+      e.preventDefault();
+      selectItem(parseInt(el.dataset.i));
+    });
+  });
+}
+
+function closeDropdown() {
+  $dropdown.classList.remove('open');
+  $dropdown.innerHTML = '';
+  ddItems  = [];
+  focusIdx = -1;
+}
+
+function moveFocus(dir) {
+  const items = $dropdown.querySelectorAll('.dd-item');
+  if (!items.length) return;
+  items[focusIdx]?.classList.remove('focused');
+  focusIdx = (focusIdx + dir + items.length) % items.length;
+  items[focusIdx]?.classList.add('focused');
+}
+
+function selectItem(i) {
+  const c = ddItems[i];
+  if (!c) return;
+  $input.value = c.n;
+  closeDropdown();
+  submitGuess(c);
+}
+
+$input.addEventListener('input', () => {
+  if (!state.done) openDropdown($input.value.trim());
+});
+$input.addEventListener('blur', () => { setTimeout(closeDropdown, 150); });
+$input.addEventListener('keydown', e => {
+  if (e.key === 'ArrowDown') { e.preventDefault(); moveFocus(1); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); moveFocus(-1); }
+  else if (e.key === 'Enter') {
+    e.preventDefault();
+    if (focusIdx >= 0) selectItem(focusIdx);
+    else if (ddItems.length === 1) selectItem(0);
+    else trySubmitFromInput();
+  }
+  else if (e.key === 'Escape') closeDropdown();
+});
+
+$btn.addEventListener('click', trySubmitFromInput);
+
+function trySubmitFromInput() {
+  const q   = $input.value.trim().toLowerCase();
+  if (!q) return;
+  const hit = SORTED.find(c => c.n.toLowerCase() === q && !guessedCodes.has(c.c));
+  if (hit) submitGuess(hit);
+  else {
+    // shake the input
+    $input.style.borderColor = 'var(--orange)';
+    setTimeout(() => { $input.style.borderColor = ''; }, 600);
+  }
+}
+
+// ─────────────────────────────────────────────────
+//  GUESS LOGIC
+// ─────────────────────────────────────────────────
+function submitGuess(country) {
+  if (state.done) return;
+  const correct = country.c === ANSWER.c;
+  const dist    = correct ? 0 : haversine(country, ANSWER);
+  const pct     = closePct(dist);
+  const dir     = correct ? '' : dirArrow(bearing(country, ANSWER));
+
+  const g = { code: country.c, name: country.n, dist, pct, dir, correct };
+  state.guesses.push(g);
+  guessedCodes.add(country.c);
+
+  const wrong = state.guesses.filter(x => !x.correct).length;
+  if (correct)           { state.done = true; state.won = true; }
+  else if (wrong >= MAX_G) { state.done = true; state.won = false; }
+
+  localStorage.setItem(STORE_KEY, JSON.stringify(state));
+
+  $input.value = '';
+  closeDropdown();
+  render(true);
+}
+
+// ─────────────────────────────────────────────────
+//  SHARE
+// ─────────────────────────────────────────────────
+$shareBtn.addEventListener('click', () => {
+  const lines = [
+    `🌍 Flaggle #${DAY_N} — ${state.won ? state.guesses.length : 'X'}/${MAX_G}`,
+    '',
+    ...state.guesses.map(g =>
+      g.correct
+        ? `🟩 ${g.name}`
+        : `${g.dir} ${g.name} — ${g.dist.toLocaleString()} km`
+    ),
+  ];
+  navigator.clipboard.writeText(lines.join('\n')).then(() => {
+    $shareBtn.textContent = '✅ Copied!';
+    $shareBtn.classList.add('copied');
+    setTimeout(() => {
+      $shareBtn.textContent = '📋 Copy results';
+      $shareBtn.classList.remove('copied');
+    }, 2500);
+  });
+});
+
+// ─────────────────────────────────────────────────
+//  CURSOR
+// ─────────────────────────────────────────────────
+const $cur = document.getElementById('cursor');
+document.addEventListener('mousemove', e => {
+  $cur.style.left = e.clientX + 'px';
+  $cur.style.top  = e.clientY + 'px';
+});
+
+// ─────────────────────────────────────────────────
+//  INIT
+// ─────────────────────────────────────────────────
+render(false);
+</script>
+</body>
+</html>
