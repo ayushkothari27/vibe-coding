@@ -785,7 +785,6 @@ function openDropdown(q) {
 
   $dropdown.innerHTML = ddItems.map((c, i) => `
     <div class="dd-item" data-i="${i}" role="option" tabindex="-1">
-      <span class="dd-flag">${flagEmoji(c.c)}</span>
       <span class="dd-name">${highlight(c.n, q)}</span>
     </div>
   `).join('');
