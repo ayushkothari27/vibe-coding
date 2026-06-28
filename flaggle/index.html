@@ -91,7 +91,7 @@
       max-width: 100%;
       object-fit: contain;
       border-radius: 5px;
-      transition: filter 0.7s ease;
+      transition: filter 0.8s ease;
       display: block;
     }
     .blur-label {
@@ -659,12 +659,14 @@ const $shareBtn   = document.getElementById('share-btn');
 // ─────────────────────────────────────────────────
 //  BLUR SCHEDULE
 // ─────────────────────────────────────────────────
-const BLURS = [26, 20, 14, 9, 5, 2, 0]; // index = # wrong guesses
+const BLURS = [22, 16, 11, 7, 4, 2, 0]; // px blur per wrong guess count
+const GRAYS = [100, 85, 65, 40, 18, 5, 0]; // % grayscale per wrong guess count
 
-function currentBlur() {
-  if (state.done) return 0;
+function currentFilter() {
+  if (state.done) return 'none';
   const wrong = state.guesses.filter(g => !g.correct).length;
-  return BLURS[Math.min(wrong, BLURS.length - 1)];
+  const i = Math.min(wrong, BLURS.length - 1);
+  return `blur(${BLURS[i]}px) grayscale(${GRAYS[i]}%)`;
 }
 
 // ─────────────────────────────────────────────────
@@ -672,7 +674,7 @@ function currentBlur() {
 // ─────────────────────────────────────────────────
 function renderFlag() {
   $flagImg.src    = `https://flagcdn.com/w640/${ANSWER.c}.png`;
-  $flagImg.style.filter = `blur(${currentBlur()}px)`;
+  $flagImg.style.filter = currentFilter();
   document.getElementById('day-tag').textContent = `#${DAY_N}`;
 }
 
