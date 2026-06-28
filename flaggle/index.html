@@ -344,7 +344,6 @@
 
   <header>
     <div class="logo">🌍 Flag<em>gle</em></div>
-    <div class="day-tag" id="day-tag">—</div>
   </header>
 
   <!-- Flag -->
@@ -709,7 +708,6 @@ function currentFilter() {
 function renderFlag() {
   $flagImg.src    = `https://flagcdn.com/w640/${ANSWER.c}.png`;
   $flagImg.style.filter = currentFilter();
-  document.getElementById('day-tag').textContent = `#${DAY_N}`;
 }
 
 function renderPips() {
