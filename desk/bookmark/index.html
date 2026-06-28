@@ -1,0 +1,552 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>hub — bookmarks</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,700;1,9..144,400&family=Space+Grotesk:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:      #1A1A2E;
+      --surface: rgba(255,255,255,0.04);
+      --border:  rgba(255,255,255,0.08);
+      --muted:   #9CA3AF;
+      --orange:  #C8572E;
+      --yellow:  #C99A30;
+      --indigo:  #6366F1;
+      --pink:    #B85C8A;
+      --green:   #3A8F72;
+      --purple:  #7A5BB0;
+      --text:    #F9FAFB;
+      --text-dim:#D1D5DB;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Space Grotesk', sans-serif;
+      height: 100svh;
+      overflow: hidden;
+      cursor: none;
+    }
+
+    .cursor {
+      width: 6px; height: 6px;
+      background: var(--orange);
+      border-radius: 50%;
+      position: fixed;
+      pointer-events: none;
+      z-index: 9999;
+      transition: transform 0.15s ease, background 0.2s ease;
+      mix-blend-mode: screen;
+    }
+    .cursor.big { transform: scale(4); background: var(--yellow); }
+
+    .blob {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(90px);
+      opacity: 0.14;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .blob-1 { width: 500px; height: 500px; background: var(--indigo); top: -140px; right: -80px;  animation: drift 8s  ease-in-out infinite; }
+    .blob-2 { width: 320px; height: 320px; background: var(--pink);   bottom: -60px; left: -60px; animation: drift 11s ease-in-out infinite reverse; }
+    .blob-3 { width: 200px; height: 200px; background: var(--yellow); top: 45%;   right: 22%;    animation: drift 7s  ease-in-out infinite 2s; }
+    .blob-4 { width: 260px; height: 260px; background: var(--purple); bottom: 20%; left: 32%;    animation: drift 9s  ease-in-out infinite 1s; }
+
+    @keyframes drift {
+      0%, 100% { transform: translate(0,0) scale(1); }
+      33%       { transform: translate(28px,-18px) scale(1.05); }
+      66%       { transform: translate(-18px,14px) scale(0.95); }
+    }
+
+    .page {
+      position: relative;
+      z-index: 1;
+      height: 100svh;
+      display: flex;
+      align-items: stretch;
+      padding: clamp(1.8rem, 3.5vh, 2.8rem) clamp(2.5rem, 6vw, 5rem);
+      gap: clamp(2rem, 4vw, 3.5rem);
+    }
+
+    .sidebar {
+      flex-shrink: 0;
+      width: clamp(180px, 22vw, 280px);
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      padding-top: 0.3rem;
+    }
+
+    .nav-links {
+      display: flex;
+      gap: 0.4rem;
+    }
+
+    .nav-lnk {
+      text-decoration: none;
+      font-size: 0.78rem;
+      font-weight: 600;
+      padding: 0.3rem 0.85rem;
+      border-radius: 0.55rem;
+      color: var(--muted);
+      border: 1.5px solid transparent;
+      transition: all 0.2s ease;
+    }
+    .nav-lnk:hover { color: var(--text); }
+    .nav-lnk.active {
+      color: var(--text);
+      border-color: var(--indigo);
+      background: rgba(99,102,241,0.1);
+    }
+
+    .page-heading {
+      font-family: 'Fraunces', Georgia, serif;
+      font-size: clamp(2rem, 3.8vw, 3rem);
+      font-weight: 700;
+      line-height: 1.1;
+      margin-top: 1rem;
+    }
+    .page-heading em { font-style: italic; color: var(--indigo); }
+
+    .stat {
+      font-size: 0.85rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+    .stat b { color: var(--text); font-weight: 600; }
+
+    .tags-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.35rem;
+      margin-top: 0.4rem;
+    }
+
+    .tag {
+      background: none;
+      border: 1.5px solid var(--border);
+      border-radius: 0.5rem;
+      padding: 0.22rem 0.6rem;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: none;
+      transition: all 0.2s;
+    }
+    .tag:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+    .tag.active { color: var(--text); border-color: var(--indigo); background: rgba(99,102,241,0.12); }
+
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 0.7rem;
+      min-height: 0;
+      padding-top: 0.3rem;
+    }
+
+    .bm-form {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .bm-row {
+      display: flex;
+      gap: 0.6rem;
+    }
+
+    input[type="text"], input[type="url"] {
+      flex: 1;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 0.65rem 1rem;
+      color: var(--text);
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.88rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    input:focus { border-color: var(--indigo); }
+    input::placeholder { color: var(--muted); }
+
+    .btn {
+      background: var(--indigo);
+      color: white;
+      border: none;
+      border-radius: 0.75rem;
+      padding: 0.65rem 1.3rem;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: none;
+      white-space: nowrap;
+      transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1), opacity 0.15s;
+    }
+    .btn:hover { transform: translateY(-2px); }
+    .btn:active { opacity: 0.85; transform: translateY(0); }
+
+    .btn-tag {
+      background: var(--surface);
+      color: var(--muted);
+      border: 1.5px solid var(--border);
+      border-radius: 0.75rem;
+      padding: 0.65rem 0.9rem;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.78rem;
+      font-weight: 600;
+      cursor: none;
+      white-space: nowrap;
+      transition: all 0.2s;
+    }
+    .btn-tag:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+
+    .list {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      padding-right: 0.3rem;
+    }
+    .list::-webkit-scrollbar { width: 4px; }
+    .list::-webkit-scrollbar-track { background: transparent; }
+    .list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+
+    .bm-card {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      background: var(--surface);
+      border: 1.5px solid var(--border);
+      border-radius: 0.8rem;
+      padding: 0.75rem 1rem;
+      text-decoration: none;
+      color: inherit;
+      cursor: none;
+      animation: slideIn 0.2s ease;
+      transition: border-color 0.2s, transform 0.18s cubic-bezier(0.34,1.56,0.64,1);
+    }
+    .bm-card:hover { border-color: rgba(255,255,255,0.14); transform: translateX(4px); }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-8px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .favicon {
+      width: 26px; height: 26px;
+      border-radius: 7px;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.08);
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      font-size: 0.65rem;
+      color: var(--muted);
+    }
+    .favicon img { width: 16px; height: 16px; object-fit: contain; }
+
+    .bm-info { flex: 1; min-width: 0; }
+
+    .bm-title {
+      font-size: 0.88rem;
+      font-weight: 600;
+      color: var(--text);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .bm-meta {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      margin-top: 0.12rem;
+    }
+
+    .bm-domain {
+      font-size: 0.74rem;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .bm-tag-pill {
+      font-size: 0.68rem;
+      font-weight: 600;
+      padding: 0.1rem 0.45rem;
+      border-radius: 0.35rem;
+      background: rgba(99,102,241,0.15);
+      color: var(--indigo);
+      border: 1px solid rgba(99,102,241,0.25);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .del {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: none;
+      padding: 0.15rem 0.4rem;
+      border-radius: 0.4rem;
+      opacity: 0;
+      font-size: 1.1rem;
+      line-height: 1;
+      flex-shrink: 0;
+      transition: all 0.15s;
+    }
+    .bm-card:hover .del { opacity: 1; }
+    .del:hover { color: var(--pink); background: rgba(184,92,138,0.12); }
+
+    .empty {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      color: var(--muted);
+    }
+    .empty-icon { font-size: 2.5rem; opacity: 0.35; }
+    .empty-text { font-size: 0.88rem; }
+
+    a, button { cursor: none; }
+
+    @media (hover: none) {
+      body, a, button { cursor: auto; }
+      .cursor { display: none; }
+      .del { opacity: 1; }
+    }
+
+    @media (max-width: 640px) {
+      .page {
+        flex-direction: column;
+        padding: 1.2rem 1.2rem 1.2rem;
+        gap: 0.8rem;
+        height: 100svh;
+      }
+
+      .sidebar {
+        width: 100%;
+        flex-shrink: 0;
+        gap: 0.5rem;
+      }
+
+      .page-heading {
+        font-size: 1.6rem;
+        margin-top: 0.2rem;
+      }
+
+      .stat { font-size: 0.8rem; }
+
+      .tags-row {
+        margin-top: 0;
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+      .tags-row::-webkit-scrollbar { display: none; }
+
+      .main {
+        flex: 1;
+        min-height: 0;
+      }
+
+      .bm-row { gap: 0.4rem; }
+
+      input[type="text"], input[type="url"] {
+        font-size: 0.82rem;
+        padding: 0.55rem 0.8rem;
+      }
+
+      .btn { padding: 0.55rem 0.9rem; font-size: 0.82rem; }
+      .btn-tag { padding: 0.55rem 0.7rem; font-size: 0.76rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="cursor" id="cursor"></div>
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+  <div class="blob blob-4"></div>
+
+  <div class="page">
+
+    <div class="sidebar">
+      <nav class="nav-links">
+        <a class="nav-lnk" href="../todo/index.html">todo</a>
+        <a class="nav-lnk active" href="../bookmark/index.html">bookmarks</a>
+      </nav>
+      <h1 class="page-heading">my <em>links.</em></h1>
+      <p class="stat" id="stat">loading…</p>
+      <div class="tags-row" id="tags-row">
+        <button class="tag active" data-tag="all">all</button>
+      </div>
+    </div>
+
+    <div class="main">
+      <div class="bm-form">
+        <div class="bm-row">
+          <input type="text" id="bm-title" placeholder="title" autocomplete="off">
+          <input type="text" id="bm-tag"   placeholder="tag (optional)" autocomplete="off" style="max-width: 140px;">
+        </div>
+        <div class="bm-row">
+          <input type="url" id="bm-url" placeholder="https://…" autocomplete="off">
+          <button class="btn-tag" id="paste-btn" title="Paste from clipboard">paste</button>
+          <button class="btn" id="save-btn">save</button>
+        </div>
+      </div>
+      <div class="list" id="bm-list"></div>
+    </div>
+
+  </div>
+
+  <script>
+    const cursor = document.getElementById('cursor');
+    document.addEventListener('mousemove', e => {
+      cursor.style.left = e.clientX - 3 + 'px';
+      cursor.style.top  = e.clientY - 3 + 'px';
+    });
+    document.addEventListener('mouseover', e => {
+      cursor.classList.toggle('big', !!e.target.closest('a, button, .bm-card'));
+    });
+
+    let bookmarks = JSON.parse(localStorage.getItem('hub-bookmarks') || '[]');
+    let activeTag = 'all';
+
+    const save = () => localStorage.setItem('hub-bookmarks', JSON.stringify(bookmarks));
+
+    const esc = s => String(s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+    const domain = url => { try { return new URL(url).hostname.replace('www.', ''); } catch { return url; } };
+
+    function allTags() {
+      const set = new Set(bookmarks.map(b => b.tag).filter(Boolean));
+      return ['all', ...set];
+    }
+
+    function renderTags() {
+      const row = document.getElementById('tags-row');
+      row.innerHTML = allTags().map(t => `
+        <button class="tag ${t === activeTag ? 'active' : ''}" data-tag="${esc(t)}">${esc(t)}</button>
+      `).join('');
+      row.querySelectorAll('.tag').forEach(btn => {
+        btn.addEventListener('click', () => {
+          activeTag = btn.dataset.tag;
+          renderTags();
+          renderList();
+        });
+      });
+    }
+
+    function renderList() {
+      const visible = activeTag === 'all'
+        ? bookmarks
+        : bookmarks.filter(b => b.tag === activeTag);
+
+      document.getElementById('stat').innerHTML =
+        `<b>${bookmarks.length}</b> saved · <b>${visible.length}</b> shown`;
+
+      const list = document.getElementById('bm-list');
+
+      if (visible.length === 0) {
+        list.innerHTML = `<div class="empty"><div class="empty-icon">🔖</div><div class="empty-text">nothing here yet — save something above</div></div>`;
+        return;
+      }
+
+      list.innerHTML = visible.map(b => {
+        const i = bookmarks.indexOf(b);
+        const fav = `https://www.google.com/s2/favicons?domain=${domain(b.url)}&sz=32`;
+        return `
+          <a class="bm-card" href="${esc(b.url)}" data-i="${i}" target="_blank" rel="noopener">
+            <div class="favicon">
+              <img src="${fav}" alt="" onerror="this.parentElement.textContent='🔗'">
+            </div>
+            <div class="bm-info">
+              <div class="bm-title">${esc(b.title || domain(b.url))}</div>
+              <div class="bm-meta">
+                <span class="bm-domain">${esc(domain(b.url))}</span>
+                ${b.tag ? `<span class="bm-tag-pill">${esc(b.tag)}</span>` : ''}
+              </div>
+            </div>
+            <button class="del" data-del="${i}" title="Remove">×</button>
+          </a>
+        `;
+      }).join('');
+
+      list.querySelectorAll('[data-del]').forEach(btn => {
+        btn.addEventListener('click', e => {
+          e.preventDefault();
+          e.stopPropagation();
+          bookmarks.splice(+btn.dataset.del, 1);
+          save();
+          if (activeTag !== 'all' && !bookmarks.some(b => b.tag === activeTag)) {
+            activeTag = 'all';
+          }
+          renderTags();
+          renderList();
+        });
+      });
+    }
+
+    function render() {
+      renderTags();
+      renderList();
+    }
+
+    function addBookmark() {
+      let url   = document.getElementById('bm-url').value.trim();
+      const title = document.getElementById('bm-title').value.trim();
+      const tag   = document.getElementById('bm-tag').value.trim().toLowerCase();
+      if (!url) return;
+      if (!/^https?:\/\//i.test(url)) url = 'https://' + url;
+      bookmarks.unshift({ title: title || domain(url), url, tag: tag || '', id: Date.now() });
+      save();
+      document.getElementById('bm-title').value = '';
+      document.getElementById('bm-url').value   = '';
+      document.getElementById('bm-tag').value   = '';
+      render();
+    }
+
+    document.getElementById('save-btn').addEventListener('click', addBookmark);
+    document.getElementById('bm-url').addEventListener('keydown', e => {
+      if (e.key === 'Enter') addBookmark();
+    });
+    document.getElementById('bm-title').addEventListener('keydown', e => {
+      if (e.key === 'Enter') document.getElementById('bm-url').focus();
+    });
+
+    document.getElementById('paste-btn').addEventListener('click', async () => {
+      try {
+        const text = await navigator.clipboard.readText();
+        if (text.startsWith('http')) {
+          document.getElementById('bm-url').value = text.trim();
+          document.getElementById('bm-title').focus();
+        }
+      } catch {
+        document.getElementById('bm-url').focus();
+      }
+    });
+
+    render();
+  </script>
+</body>
+</html>
