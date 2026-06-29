@@ -263,37 +263,8 @@
     let planeMarker = null;
     let trailLine = null;
     let trailPoints = [];
-    let depMarker = null;
-    let arrMarker = null;
-    let routeLine = null;
     let refreshTimer = null;
     let countdownInterval = null;
-
-    function airportDot(color, code) {
-      return L.divIcon({
-        html: `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;pointer-events:none;">
-          <div style="width:9px;height:9px;background:${color};border-radius:50%;border:2px solid rgba(255,255,255,0.5);"></div>
-          <div style="background:rgba(15,15,26,0.85);color:${color};font-family:monospace;font-size:9px;font-weight:700;padding:1px 4px;border-radius:3px;white-space:nowrap;">${code}</div>
-        </div>`,
-        className: '',
-        iconSize: [50, 28],
-        iconAnchor: [25, 4],
-      });
-    }
-
-    function updateRoute(dep, arr) {
-      if (depMarker) { map.removeLayer(depMarker); depMarker = null; }
-      if (arrMarker) { map.removeLayer(arrMarker); arrMarker = null; }
-      if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
-      if (!dep && !arr) return;
-
-      // dep/arr are adsbdb airport objects: { iata_code, latitude, longitude, municipality, name }
-      if (dep) depMarker = L.marker([dep.latitude, dep.longitude], { icon: airportDot('#3A8F72', dep.iata_code), zIndexOffset: -10 })
-        .addTo(map).bindTooltip(`${dep.iata_code} · ${dep.municipality}`, { direction: 'top' });
-      if (arr) arrMarker = L.marker([arr.latitude, arr.longitude], { icon: airportDot('#C8572E', arr.iata_code), zIndexOffset: -10 })
-        .addTo(map).bindTooltip(`${arr.iata_code} · ${arr.municipality}`, { direction: 'top' });
-      if (dep && arr) routeLine = L.polyline([[dep.latitude, dep.longitude], [arr.latitude, arr.longitude]], { color: '#7A5BB0', weight: 1.5, opacity: 0.25, dashArray: '4 6' }).addTo(map);
-    }
 
     function planeIcon(heading) {
       const h = heading ?? 0;
@@ -315,7 +286,7 @@
       document.getElementById('statusText').textContent = text;
     }
 
-    function showInfo(s, depCode, arrCode) {
+    function showInfo(s) {
       const altRaw = s.alt_baro;
       const onGround = s.gnd === true || altRaw === 'ground';
       const alt = typeof altRaw === 'number' ? Math.round(altRaw) : null;
@@ -331,8 +302,6 @@
       const cards = [
         { label: 'Callsign', value: callsign || '—' },
         { label: 'Status', value: onGround ? 'On Ground' : 'Airborne', cls: onGround ? 'grounded' : 'airborne big' },
-        ...(dep ? [{ label: 'From', value: `${dep.iata_code} · ${dep.municipality}` }] : []),
-        ...(arr ? [{ label: 'To', value: `${arr.iata_code} · ${arr.municipality}` }] : []),
         { label: 'Altitude', value: alt != null ? alt.toLocaleString() + ' ft' : onGround ? 'On ground' : '—' },
         { label: 'Speed', value: speed != null ? speed + ' kt' : '—' },
         { label: 'Heading', value: heading != null ? `${Math.round(heading)}° ${heading2compass(heading)}` : '—' },
@@ -383,18 +352,12 @@
       if (planeMarker) { map.removeLayer(planeMarker); planeMarker = null; }
       if (trailLine) { map.removeLayer(trailLine); trailLine = null; }
       trailPoints = [];
-      updateRoute(null, null);
       document.getElementById('trackBtn').disabled = true;
       document.getElementById('emptyState').style.display = 'none';
       setStatus('', `Looking up ${callsign}…`);
 
       try {
-        const [liveRes, routeRes] = await Promise.allSettled([
-          fetch(`https://api.airplanes.live/v2/callsign/${encodeURIComponent(callsign)}`).then(r => r.json()),
-          fetch(`https://api.adsbdb.com/v0/callsign/${encodeURIComponent(callsign)}`).then(r => r.json()),
-        ]);
-
-        const json = liveRes.status === 'fulfilled' ? liveRes.value : null;
+        const json = await fetch(`https://api.airplanes.live/v2/callsign/${encodeURIComponent(callsign)}`).then(r => r.json());
         const ac = json?.ac;
         if (!ac || ac.length === 0) {
           setStatus('error', `No live data for ${callsign}. The flight may not be airborne yet.`);
@@ -428,12 +391,7 @@
           }
         }
 
-        const fr = routeRes.status === 'fulfilled' ? routeRes.value?.response?.flightroute : null;
-        const dep = fr?.origin || null;
-        const arr = fr?.destination || null;
-        updateRoute(dep, arr);
-
-        showInfo(s, dep, arr);
+        showInfo(s);
         const reg = (s.r || '').trim();
         const type = (s.t || '').trim();
         setStatus('live', `Live · ${(s.flight || '').trim()}${reg ? ' · ' + reg : ''}${type ? ' · ' + type : ''}`);
