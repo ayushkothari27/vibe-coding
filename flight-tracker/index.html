@@ -252,98 +252,6 @@
       return Number(val).toFixed(digits) + ' ' + unit;
     }
 
-    // Major airport database (ICAO → {name, city, lat, lon})
-    const AIRPORTS = {
-      // North America - USA
-      'KATL':{city:'Atlanta',lat:33.637,lon:-84.428},'KLAX':{city:'Los Angeles',lat:33.943,lon:-118.408},
-      'KORD':{city:'Chicago',lat:41.978,lon:-87.905},'KDFW':{city:'Dallas',lat:32.897,lon:-97.038},
-      'KDEN':{city:'Denver',lat:39.856,lon:-104.674},'KJFK':{city:'New York JFK',lat:40.640,lon:-73.779},
-      'KSFO':{city:'San Francisco',lat:37.619,lon:-122.375},'KSEA':{city:'Seattle',lat:47.449,lon:-122.309},
-      'KLAS':{city:'Las Vegas',lat:36.080,lon:-115.152},'KMIA':{city:'Miami',lat:25.796,lon:-80.287},
-      'KBOS':{city:'Boston',lat:42.365,lon:-71.010},'KPHX':{city:'Phoenix',lat:33.437,lon:-112.008},
-      'KEWR':{city:'Newark',lat:40.690,lon:-74.169},'KLGA':{city:'New York LGA',lat:40.777,lon:-73.873},
-      'KDTW':{city:'Detroit',lat:42.213,lon:-83.353},'KPHL':{city:'Philadelphia',lat:39.872,lon:-75.241},
-      'KSLC':{city:'Salt Lake City',lat:40.788,lon:-111.978},'KIAD':{city:'Washington Dulles',lat:38.944,lon:-77.456},
-      'KBWI':{city:'Baltimore',lat:39.176,lon:-76.669},'KDCA':{city:'Washington Reagan',lat:38.852,lon:-77.038},
-      'KFLL':{city:'Fort Lauderdale',lat:26.073,lon:-80.150},'KMCO':{city:'Orlando',lat:28.430,lon:-81.309},
-      'KTPA':{city:'Tampa',lat:27.975,lon:-82.533},'KMDW':{city:'Chicago Midway',lat:41.786,lon:-87.742},
-      'KPDX':{city:'Portland',lat:45.589,lon:-122.598},'KSAN':{city:'San Diego',lat:32.734,lon:-117.190},
-      'KIAH':{city:'Houston Bush',lat:29.984,lon:-95.341},'KHOU':{city:'Houston Hobby',lat:29.645,lon:-95.279},
-      'KAUS':{city:'Austin',lat:30.194,lon:-97.670},'KBNA':{city:'Nashville',lat:36.124,lon:-86.678},
-      'KSTL':{city:'St. Louis',lat:38.749,lon:-90.370},'KCLT':{city:'Charlotte',lat:35.214,lon:-80.943},
-      'KMSP':{city:'Minneapolis',lat:44.883,lon:-93.222},'KMEM':{city:'Memphis',lat:35.043,lon:-89.977},
-      'PHNL':{city:'Honolulu',lat:21.319,lon:-157.922},'PANC':{city:'Anchorage',lat:61.174,lon:-149.996},
-      'KOAK':{city:'Oakland',lat:37.721,lon:-122.221},'KSJC':{city:'San Jose',lat:37.363,lon:-121.929},
-      'KRDU':{city:'Raleigh',lat:35.878,lon:-78.788},'KPIT':{city:'Pittsburgh',lat:40.492,lon:-80.233},
-      'KIND':{city:'Indianapolis',lat:39.717,lon:-86.294},'KCMH':{city:'Columbus',lat:39.998,lon:-82.892},
-      'KBUF':{city:'Buffalo',lat:42.940,lon:-78.732},'KRSW':{city:'Fort Myers',lat:26.536,lon:-81.755},
-      'KSNA':{city:'Orange County',lat:33.676,lon:-117.868},'KSMF':{city:'Sacramento',lat:38.696,lon:-121.591},
-      // Canada
-      'CYYZ':{city:'Toronto',lat:43.677,lon:-79.631},'CYVR':{city:'Vancouver',lat:49.195,lon:-123.184},
-      'CYUL':{city:'Montreal',lat:45.470,lon:-73.741},'CYYC':{city:'Calgary',lat:51.114,lon:-114.020},
-      'CYEG':{city:'Edmonton',lat:53.310,lon:-113.580},'CYOW':{city:'Ottawa',lat:45.322,lon:-75.669},
-      'CYHZ':{city:'Halifax',lat:44.881,lon:-63.509},
-      // Mexico / Caribbean
-      'MMMX':{city:'Mexico City',lat:19.436,lon:-99.072},'MMUN':{city:'Cancun',lat:21.037,lon:-86.877},
-      'MKJP':{city:'Kingston',lat:17.936,lon:-76.788},'TBPB':{city:'Bridgetown',lat:13.075,lon:-59.493},
-      // Europe
-      'EGLL':{city:'London Heathrow',lat:51.477,lon:-0.461},'EGKK':{city:'London Gatwick',lat:51.148,lon:-0.190},
-      'EGSS':{city:'London Stansted',lat:51.885,lon:0.235},'EGCC':{city:'Manchester',lat:53.354,lon:-2.275},
-      'EGPH':{city:'Edinburgh',lat:55.950,lon:-3.373},'EIDW':{city:'Dublin',lat:53.421,lon:-6.270},
-      'EHAM':{city:'Amsterdam',lat:52.309,lon:4.764},'LFPG':{city:'Paris CDG',lat:49.013,lon:2.550},
-      'LFPO':{city:'Paris Orly',lat:48.723,lon:2.380},'EDDF':{city:'Frankfurt',lat:50.026,lon:8.543},
-      'EDDM':{city:'Munich',lat:48.354,lon:11.787},'EDDB':{city:'Berlin',lat:52.366,lon:13.503},
-      'LEMD':{city:'Madrid',lat:40.472,lon:-3.561},'LEBL':{city:'Barcelona',lat:41.297,lon:2.078},
-      'LIRF':{city:'Rome',lat:41.800,lon:12.239},'LIMC':{city:'Milan Malpensa',lat:45.630,lon:8.723},
-      'LSZH':{city:'Zurich',lat:47.464,lon:8.549},'LSGG':{city:'Geneva',lat:46.238,lon:6.109},
-      'EBBR':{city:'Brussels',lat:50.901,lon:4.484},'EBCI':{city:'Charleroi',lat:50.459,lon:4.453},
-      'ESSA':{city:'Stockholm',lat:59.652,lon:17.919},'EKCH':{city:'Copenhagen',lat:55.618,lon:12.656},
-      'ENGM':{city:'Oslo',lat:60.194,lon:11.100},'EFHK':{city:'Helsinki',lat:60.317,lon:24.963},
-      'EPWA':{city:'Warsaw',lat:52.166,lon:20.967},'LKPR':{city:'Prague',lat:50.101,lon:14.260},
-      'LHBP':{city:'Budapest',lat:47.433,lon:19.261},'LOWW':{city:'Vienna',lat:48.110,lon:16.570},
-      'LPPT':{city:'Lisbon',lat:38.774,lon:-9.135},'LGAV':{city:'Athens',lat:37.937,lon:23.944},
-      'LCLK':{city:'Larnaca',lat:34.875,lon:33.625},'LYBT':{city:'Belgrade',lat:44.820,lon:20.309},
-      'UUEE':{city:'Moscow Sheremetyevo',lat:55.973,lon:37.415},'UKBB':{city:'Kyiv',lat:50.345,lon:30.894},
-      'LFML':{city:'Marseille',lat:43.436,lon:5.215},'LFMN':{city:'Nice',lat:43.665,lon:7.215},
-      // Middle East
-      'OMDB':{city:'Dubai',lat:25.253,lon:55.364},'OMAA':{city:'Abu Dhabi',lat:24.433,lon:54.651},
-      'OMDW':{city:'Dubai Al Maktoum',lat:24.896,lon:55.161},'OTHH':{city:'Doha',lat:25.274,lon:51.608},
-      'OBBI':{city:'Bahrain',lat:26.271,lon:50.634},'OERK':{city:'Riyadh',lat:24.958,lon:46.699},
-      'OKBK':{city:'Kuwait',lat:29.227,lon:47.969},'OOMS':{city:'Muscat',lat:23.594,lon:58.285},
-      'LLBG':{city:'Tel Aviv',lat:32.009,lon:34.887},'HECA':{city:'Cairo',lat:30.122,lon:31.406},
-      'LTBA':{city:'Istanbul Ataturk',lat:40.976,lon:28.815},'LTFM':{city:'Istanbul',lat:41.275,lon:28.752},
-      // Asia
-      'RJTT':{city:'Tokyo Haneda',lat:35.553,lon:139.780},'RJAA':{city:'Tokyo Narita',lat:35.765,lon:140.387},
-      'RKSI':{city:'Seoul Incheon',lat:37.463,lon:126.440},'VHHH':{city:'Hong Kong',lat:22.309,lon:113.915},
-      'WSSS':{city:'Singapore',lat:1.360,lon:103.989},'VTBS':{city:'Bangkok',lat:13.681,lon:100.747},
-      'WMKK':{city:'Kuala Lumpur',lat:2.746,lon:101.710},'WIII':{city:'Jakarta',lat:-6.126,lon:106.656},
-      'RPLL':{city:'Manila',lat:14.509,lon:121.020},'VIDP':{city:'Delhi',lat:28.557,lon:77.088},
-      'VABB':{city:'Mumbai',lat:19.089,lon:72.868},'VOMM':{city:'Chennai',lat:12.990,lon:80.169},
-      'VOBL':{city:'Bengaluru',lat:13.198,lon:77.706},'ZBAA':{city:'Beijing Capital',lat:40.080,lon:116.585},
-      'ZBAD':{city:'Beijing Daxing',lat:39.509,lon:116.410},'ZSPD':{city:'Shanghai Pudong',lat:31.144,lon:121.805},
-      'ZSSS':{city:'Shanghai Hongqiao',lat:31.198,lon:121.336},'ZGGG':{city:'Guangzhou',lat:23.393,lon:113.299},
-      'ZUCK':{city:'Chongqing',lat:29.720,lon:106.642},'ZUUU':{city:'Chengdu',lat:30.578,lon:103.947},
-      'ZSHC':{city:'Hangzhou',lat:30.229,lon:120.434},'ZGSZ':{city:'Shenzhen',lat:22.639,lon:113.811},
-      'VGZR':{city:'Dhaka',lat:23.844,lon:90.398},'VCBI':{city:'Colombo',lat:7.180,lon:79.884},
-      'VNKT':{city:'Kathmandu',lat:27.697,lon:85.360},
-      // Australia / Pacific
-      'YSSY':{city:'Sydney',lat:-33.947,lon:151.177},'YMML':{city:'Melbourne',lat:-37.673,lon:144.843},
-      'YBBN':{city:'Brisbane',lat:-27.384,lon:153.118},'YPPH':{city:'Perth',lat:-31.940,lon:115.967},
-      'YPAD':{city:'Adelaide',lat:-34.945,lon:138.531},'NZAA':{city:'Auckland',lat:-37.009,lon:174.792},
-      'NZCH':{city:'Christchurch',lat:-43.489,lon:172.532},'YSAU':{city:'Darwin',lat:-12.415,lon:130.877},
-      // Latin America
-      'SBGR':{city:'São Paulo Guarulhos',lat:-23.432,lon:-46.469},'SBRJ':{city:'Rio de Janeiro',lat:-22.910,lon:-43.163},
-      'SBKP':{city:'Campinas',lat:-23.007,lon:-47.135},'SKBO':{city:'Bogotá',lat:4.702,lon:-74.147},
-      'SEQM':{city:'Quito',lat:-0.129,lon:-78.358},'SPJC':{city:'Lima',lat:-12.022,lon:-77.114},
-      'SAEZ':{city:'Buenos Aires',lat:-34.822,lon:-58.536},'SCEL':{city:'Santiago',lat:-33.393,lon:-70.786},
-      'SBBR':{city:'Brasília',lat:-15.871,lon:-47.919},
-      // Africa
-      'FAOR':{city:'Johannesburg',lat:-26.139,lon:28.246},'FACT':{city:'Cape Town',lat:-33.965,lon:18.602},
-      'HAAB':{city:'Addis Ababa',lat:8.978,lon:38.799},'DNMM':{city:'Lagos',lat:6.577,lon:3.322},
-      'HKJK':{city:'Nairobi',lat:-1.319,lon:36.925},'DTTA':{city:'Tunis',lat:36.851,lon:10.228},
-      'GMMN':{city:'Casablanca',lat:33.368,lon:-7.590},'HSSS':{city:'Khartoum',lat:15.590,lon:32.553},
-    };
-
     // map setup
     const map = L.map('map', { zoomControl: true, attributionControl: true }).setView([30, 0], 2);
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
@@ -373,17 +281,18 @@
       });
     }
 
-    function updateRoute(depCode, arrCode) {
+    function updateRoute(dep, arr) {
       if (depMarker) { map.removeLayer(depMarker); depMarker = null; }
       if (arrMarker) { map.removeLayer(arrMarker); arrMarker = null; }
       if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+      if (!dep && !arr) return;
 
-      const dep = depCode && AIRPORTS[depCode];
-      const arr = arrCode && AIRPORTS[arrCode];
-
-      if (dep) depMarker = L.marker([dep.lat, dep.lon], { icon: airportDot('#3A8F72', depCode), zIndexOffset: -10 }).addTo(map).bindTooltip(dep.city + ' (origin)', { direction: 'top' });
-      if (arr) arrMarker = L.marker([arr.lat, arr.lon], { icon: airportDot('#C8572E', arrCode), zIndexOffset: -10 }).addTo(map).bindTooltip(arr.city + ' (destination)', { direction: 'top' });
-      if (dep && arr) routeLine = L.polyline([[dep.lat, dep.lon], [arr.lat, arr.lon]], { color: '#7A5BB0', weight: 1.5, opacity: 0.25, dashArray: '4 6' }).addTo(map);
+      // dep/arr are adsbdb airport objects: { iata_code, latitude, longitude, municipality, name }
+      if (dep) depMarker = L.marker([dep.latitude, dep.longitude], { icon: airportDot('#3A8F72', dep.iata_code), zIndexOffset: -10 })
+        .addTo(map).bindTooltip(`${dep.iata_code} · ${dep.municipality}`, { direction: 'top' });
+      if (arr) arrMarker = L.marker([arr.latitude, arr.longitude], { icon: airportDot('#C8572E', arr.iata_code), zIndexOffset: -10 })
+        .addTo(map).bindTooltip(`${arr.iata_code} · ${arr.municipality}`, { direction: 'top' });
+      if (dep && arr) routeLine = L.polyline([[dep.latitude, dep.longitude], [arr.latitude, arr.longitude]], { color: '#7A5BB0', weight: 1.5, opacity: 0.25, dashArray: '4 6' }).addTo(map);
     }
 
     function planeIcon(heading) {
@@ -419,14 +328,11 @@
       const squawk = s.squawk || '—';
       const lat = s.lat, lon = s.lon;
 
-      const depApt = depCode && AIRPORTS[depCode];
-      const arrApt = arrCode && AIRPORTS[arrCode];
-
       const cards = [
         { label: 'Callsign', value: callsign || '—' },
         { label: 'Status', value: onGround ? 'On Ground' : 'Airborne', cls: onGround ? 'grounded' : 'airborne big' },
-        ...(depApt ? [{ label: 'From', value: `${depCode} · ${depApt.city}` }] : []),
-        ...(arrApt ? [{ label: 'To', value: `${arrCode} · ${arrApt.city}` }] : []),
+        ...(dep ? [{ label: 'From', value: `${dep.iata_code} · ${dep.municipality}` }] : []),
+        ...(arr ? [{ label: 'To', value: `${arr.iata_code} · ${arr.municipality}` }] : []),
         { label: 'Altitude', value: alt != null ? alt.toLocaleString() + ' ft' : onGround ? 'On ground' : '—' },
         { label: 'Speed', value: speed != null ? speed + ' kt' : '—' },
         { label: 'Heading', value: heading != null ? `${Math.round(heading)}° ${heading2compass(heading)}` : '—' },
@@ -483,12 +389,13 @@
       setStatus('', `Looking up ${callsign}…`);
 
       try {
-        const url = `https://api.airplanes.live/v2/callsign/${encodeURIComponent(callsign)}`;
-        const res = await fetch(url);
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const json = await res.json();
+        const [liveRes, routeRes] = await Promise.allSettled([
+          fetch(`https://api.airplanes.live/v2/callsign/${encodeURIComponent(callsign)}`).then(r => r.json()),
+          fetch(`https://api.adsbdb.com/v0/callsign/${encodeURIComponent(callsign)}`).then(r => r.json()),
+        ]);
 
-        const ac = json.ac;
+        const json = liveRes.status === 'fulfilled' ? liveRes.value : null;
+        const ac = json?.ac;
         if (!ac || ac.length === 0) {
           setStatus('error', `No live data for ${callsign}. The flight may not be airborne yet.`);
           document.getElementById('infoGrid').style.display = 'none';
@@ -521,11 +428,12 @@
           }
         }
 
-        const depCode = (s.dep || s.orig || '').trim().toUpperCase() || null;
-        const arrCode = (s.arr || s.dest || s.dst || '').trim().toUpperCase() || null;
-        updateRoute(depCode, arrCode);
+        const fr = routeRes.status === 'fulfilled' ? routeRes.value?.response?.flightroute : null;
+        const dep = fr?.origin || null;
+        const arr = fr?.destination || null;
+        updateRoute(dep, arr);
 
-        showInfo(s, depCode, arrCode);
+        showInfo(s, dep, arr);
         const reg = (s.r || '').trim();
         const type = (s.t || '').trim();
         setStatus('live', `Live · ${(s.flight || '').trim()}${reg ? ' · ' + reg : ''}${type ? ' · ' + type : ''}`);
