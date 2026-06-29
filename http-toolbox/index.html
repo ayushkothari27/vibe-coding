@@ -159,6 +159,16 @@
     .fill-green  { background: var(--green); }
     .fill-yellow { background: var(--yellow); }
     .fill-indigo { background: var(--indigo); }
+
+    @media (max-width: 500px) {
+      h1 { font-size: 1.6rem; }
+      .comp-table { min-width: 380px; }
+      .mrow { grid-template-columns: 68px 1fr 46px 46px 46px; }
+      .lc-code { font-size: 0.65rem; }
+      .row { flex-direction: column; }
+      .row .inp { width: 100%; }
+      .row .btn { width: 100%; }
+    }
   </style>
 </head>
 <body>
@@ -210,7 +220,9 @@
     <div class="tab-panel" id="tab-versions">
       <p style="font-size:0.75rem;color:var(--muted);margin-bottom:1.1rem">How HTTP evolved to handle multiple requests more efficiently.</p>
       <div class="ver-cols" id="verCols"></div>
-      <div class="comp-table" id="compTable"></div>
+      <div style="overflow-x:auto;-webkit-overflow-scrolling:touch;">
+        <div class="comp-table" id="compTable"></div>
+      </div>
     </div>
 
     <!-- ── CACHE ── -->

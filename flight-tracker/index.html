@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Flight Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,700;1,9..144,400&family=Space+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #1A1A2E;
+      --surface: #22223A;
+      --border: rgba(255,255,255,0.07);
+      --text: #E8E8F0;
+      --muted: #6B6B8A;
+      --accent: #7A5BB0;
+      --accent-glow: rgba(122,91,176,0.25);
+      --green: #3A8F72;
+      --red: #C8572E;
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Space Grotesk', sans-serif;
+      min-height: 100vh;
+      cursor: none;
+      overflow-x: hidden;
+    }
+
+    /* cursor */
+    .cursor { position: fixed; width: 10px; height: 10px; background: var(--accent); border-radius: 50%; pointer-events: none; z-index: 9999; transform: translate(-50%,-50%); transition: transform 0.1s, opacity 0.2s; }
+    .cursor-ring { position: fixed; width: 32px; height: 32px; border: 1.5px solid var(--accent); border-radius: 50%; pointer-events: none; z-index: 9998; transform: translate(-50%,-50%); transition: transform 0.15s ease-out, width 0.2s, height 0.2s, opacity 0.2s; }
+    @media (hover: none) { body { cursor: auto; } .cursor, .cursor-ring { display: none; } a, button { cursor: pointer; } }
+
+    /* blobs */
+    .blob { position: fixed; border-radius: 50%; filter: blur(80px); pointer-events: none; z-index: 0; opacity: 0.25; }
+    .blob-1 { width: 420px; height: 420px; background: #7A5BB0; top: -120px; left: -80px; animation: drift 18s ease-in-out infinite; }
+    .blob-2 { width: 320px; height: 320px; background: #6366F1; bottom: 60px; right: -60px; animation: drift 22s ease-in-out infinite reverse; }
+    .blob-3 { width: 260px; height: 260px; background: #3A8F72; top: 40%; left: 55%; animation: drift 16s ease-in-out infinite 4s; }
+    @keyframes drift { 0%,100%{transform:translate(0,0) scale(1)} 33%{transform:translate(30px,-20px) scale(1.05)} 66%{transform:translate(-20px,25px) scale(0.97)} }
+
+    .wrap { position: relative; z-index: 1; max-width: 780px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+
+    header { display: flex; align-items: baseline; gap: 1rem; margin-bottom: 2rem; }
+    .back { font-size: 0.8rem; color: var(--muted); text-decoration: none; transition: color 0.2s; }
+    .back:hover { color: var(--accent); }
+    h1 { font-family: 'Fraunces', serif; font-size: 2rem; font-weight: 700; letter-spacing: -0.02em; }
+    h1 em { font-style: italic; font-weight: 400; color: var(--accent); }
+
+    /* search */
+    .search-row { display: flex; gap: 0.6rem; margin-bottom: 1.5rem; }
+    .search-row input {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 1rem;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .search-row input::placeholder { color: var(--muted); }
+    .search-row input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+    .btn {
+      background: var(--accent);
+      border: none;
+      border-radius: 10px;
+      padding: 0.75rem 1.4rem;
+      color: #fff;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: none;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .btn:hover { background: #9370cc; }
+    .btn:active { transform: scale(0.97); }
+    .btn:disabled { opacity: 0.5; pointer-events: none; }
+
+    /* hint */
+    .hint { font-size: 0.78rem; color: var(--muted); margin-bottom: 1.25rem; }
+    .hint code { font-family: 'JetBrains Mono', monospace; color: var(--accent); font-size: 0.76rem; }
+
+    /* map */
+    #map {
+      width: 100%;
+      height: 380px;
+      border-radius: 14px;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      margin-bottom: 1.25rem;
+    }
+    .leaflet-container { background: #0f0f1a !important; }
+
+    /* status bar */
+    .status-bar {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 1.25rem;
+      min-height: 1.4rem;
+    }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+    .status-dot.live { background: var(--green); box-shadow: 0 0 6px var(--green); animation: pulse 2s infinite; }
+    .status-dot.error { background: var(--red); }
+    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+    /* info grid */
+    .info-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1.25rem;
+    }
+    .info-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 0.9rem 1rem;
+    }
+    .info-label { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin-bottom: 0.35rem; }
+    .info-value { font-family: 'JetBrains Mono', monospace; font-size: 1rem; font-weight: 500; color: var(--text); }
+    .info-value.airborne { color: var(--green); }
+    .info-value.grounded { color: var(--muted); }
+    .info-value.big { font-size: 1.2rem; }
+
+    /* refresh row */
+    .refresh-row { display: flex; align-items: center; gap: 0.75rem; }
+    .btn-sm {
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 0.45rem 0.9rem;
+      color: var(--muted);
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.8rem;
+      cursor: none;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+
+    /* empty state */
+    .empty {
+      text-align: center;
+      padding: 3rem 1rem;
+      color: var(--muted);
+    }
+    .empty-icon { font-size: 3rem; margin-bottom: 1rem; opacity: 0.5; }
+    .empty p { font-size: 0.9rem; }
+
+    /* attribution override */
+    .leaflet-control-attribution { background: rgba(15,15,26,0.8) !important; color: var(--muted) !important; font-size: 0.65rem !important; }
+    .leaflet-control-attribution a { color: var(--muted) !important; }
+
+    @media (max-width: 500px) {
+      h1 { font-size: 1.6rem; }
+      #map { height: 280px; }
+      .info-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <div class="cursor" id="cur"></div>
+  <div class="cursor-ring" id="ring"></div>
+
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+
+  <div class="wrap">
+    <header>
+      <a class="back" href="../index.html">← back</a>
+      <h1>flight<em>tracker</em></h1>
+    </header>
+
+    <div class="search-row">
+      <input type="text" id="flightInput" placeholder="e.g. UA123, BA456, EK101" autocomplete="off" spellcheck="false">
+      <button class="btn" id="trackBtn" onclick="track()">Track</button>
+    </div>
+
+    <div id="map"></div>
+
+    <div class="status-bar">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Enter a flight number to begin.</span>
+    </div>
+
+    <div id="infoGrid" class="info-grid" style="display:none"></div>
+
+    <div id="refreshRow" class="refresh-row" style="display:none">
+      <button class="btn-sm" onclick="track()">↻ Refresh</button>
+      <span id="nextRefresh" style="font-size:0.78rem;color:var(--muted)"></span>
+    </div>
+
+    <div id="emptyState" class="empty">
+      <div class="empty-icon">✈️</div>
+      <p>Track any commercial flight live.<br>Updates every 30 seconds.</p>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>
+    // cursor
+    const cur = document.getElementById('cur'), ring = document.getElementById('ring');
+    document.addEventListener('mousemove', e => {
+      cur.style.left = e.clientX + 'px'; cur.style.top = e.clientY + 'px';
+      ring.style.left = e.clientX + 'px'; ring.style.top = e.clientY + 'px';
+    });
+
+    // IATA → ICAO airline prefix map
+    const AIRLINE = {
+      'AA':'AAL','UA':'UAL','DL':'DAL','WN':'SWA','B6':'JBU','AS':'ASA',
+      'F9':'FFT','NK':'NKS','G4':'AAY','SY':'SCX','HA':'HAL','VX':'VRD',
+      'BA':'BAW','LH':'DLH','AF':'AFR','KL':'KLM','FR':'RYR','U2':'EZY',
+      'IB':'IBE','SK':'SAS','AY':'FIN','LX':'SWR','OS':'AUA','TK':'THY',
+      'VY':'VLG','W6':'WZZ','TP':'TAP','SN':'BEL','LO':'LOT','OK':'CSA',
+      'EK':'UAE','QR':'QTR','EY':'ETD','FZ':'FDB','SV':'SVA','WY':'OMA',
+      'SQ':'SIA','CX':'CPA','JL':'JAL','NH':'ANA','QF':'QFA','KE':'KAL',
+      'OZ':'AAR','CI':'CAL','BR':'EVA','MH':'MAS','TG':'THA','GA':'GIA',
+      'AI':'AIC','SL':'THA','VN':'HVN','PR':'PAL','CZ':'CSN','MU':'CES',
+      'CA':'CCA','HU':'CHH','ZH':'CSZ','AC':'ACA','WS':'WJA','TS':'TSC',
+      'ET':'ETH','SA':'SAA','MS':'MSR','AV':'AVA','LA':'LAN','AM':'AMX',
+      'CM':'CMP','AR':'ARG','JJ':'TAM','G3':'GLO','AD':'AZU',
+    };
+
+    function parseCallsign(raw) {
+      const s = raw.trim().toUpperCase().replace(/\s+/g, '');
+      const m = s.match(/^([A-Z]{2,3})(\d{1,4}[A-Z]?)$/);
+      if (!m) return null;
+      const [, prefix, num] = m;
+      if (prefix.length === 3) return prefix + num;
+      const icao = AIRLINE[prefix];
+      return icao ? icao + num : prefix + num;
+    }
+
+    function heading2compass(deg) {
+      const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+      return dirs[Math.round(deg / 22.5) % 16];
+    }
+
+    function fmt(val, unit, digits = 0) {
+      if (val == null) return '—';
+      return Number(val).toFixed(digits) + ' ' + unit;
+    }
+
+    // map setup
+    const map = L.map('map', { zoomControl: true, attributionControl: true }).setView([30, 0], 2);
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '© OpenStreetMap © CARTO',
+      subdomains: 'abcd',
+      maxZoom: 18,
+    }).addTo(map);
+
+    let planeMarker = null;
+    let trailLine = null;
+    let trailPoints = [];
+    let refreshTimer = null;
+    let countdownInterval = null;
+
+    function planeIcon(heading) {
+      const h = heading ?? 0;
+      return L.divIcon({
+        html: `<div style="transform:rotate(${h}deg);width:32px;height:32px;display:flex;align-items:center;justify-content:center;">
+          <svg viewBox="0 0 24 24" width="28" height="28" fill="#7A5BB0" xmlns="http://www.w3.org/2000/svg">
+            <path d="M21 16v-2l-8-5V3.5C13 2.67 12.33 2 11.5 2S10 2.67 10 3.5V9l-8 5v2l8-2.5V19l-2 1.5V22l3.5-1 3.5 1v-1.5L13 19v-5.5l8 2.5z"/>
+          </svg>
+        </div>`,
+        className: '',
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+      });
+    }
+
+    function setStatus(state, text) {
+      const dot = document.getElementById('statusDot');
+      dot.className = 'status-dot' + (state === 'live' ? ' live' : state === 'error' ? ' error' : '');
+      document.getElementById('statusText').textContent = text;
+    }
+
+    function showInfo(s) {
+      const altRaw = s.alt_baro;
+      const onGround = s.gnd === true || altRaw === 'ground';
+      const alt = typeof altRaw === 'number' ? Math.round(altRaw) : null;
+      const speed = s.gs != null ? Math.round(s.gs) : null;
+      const heading = s.track;
+      const vertRate = s.baro_rate != null ? Math.round(s.baro_rate) : null;
+      const callsign = (s.flight || '').trim();
+      const reg = (s.r || '').trim();
+      const type = (s.t || '').trim();
+      const squawk = s.squawk || '—';
+      const lat = s.lat, lon = s.lon;
+
+      const cards = [
+        { label: 'Callsign', value: callsign || '—' },
+        { label: 'Status', value: onGround ? 'On Ground' : 'Airborne', cls: onGround ? 'grounded' : 'airborne big' },
+        { label: 'Altitude', value: alt != null ? alt.toLocaleString() + ' ft' : onGround ? 'On ground' : '—' },
+        { label: 'Speed', value: speed != null ? speed + ' kt' : '—' },
+        { label: 'Heading', value: heading != null ? `${Math.round(heading)}° ${heading2compass(heading)}` : '—' },
+        { label: 'Vert. Rate', value: vertRate != null ? (vertRate > 0 ? '+' : '') + vertRate.toLocaleString() + ' ft/min' : '—' },
+        { label: 'Registration', value: reg || '—' },
+        { label: 'Aircraft', value: type || '—' },
+        { label: 'Squawk', value: squawk },
+        { label: 'Latitude', value: lat != null ? lat.toFixed(4) + '°' : '—' },
+        { label: 'Longitude', value: lon != null ? lon.toFixed(4) + '°' : '—' },
+      ];
+
+      const grid = document.getElementById('infoGrid');
+      grid.innerHTML = cards.map(c =>
+        `<div class="info-card">
+          <div class="info-label">${c.label}</div>
+          <div class="info-value ${c.cls || ''}">${c.value}</div>
+        </div>`
+      ).join('');
+      grid.style.display = 'grid';
+    }
+
+    function startCountdown(seconds) {
+      clearInterval(countdownInterval);
+      let remaining = seconds;
+      const el = document.getElementById('nextRefresh');
+      const tick = () => {
+        if (remaining <= 0) { el.textContent = 'Refreshing…'; return; }
+        el.textContent = `Next refresh in ${remaining}s`;
+        remaining--;
+      };
+      tick();
+      countdownInterval = setInterval(tick, 1000);
+    }
+
+    async function track() {
+      const raw = document.getElementById('flightInput').value;
+      if (!raw.trim()) return;
+
+      const callsign = parseCallsign(raw);
+      if (!callsign) {
+        setStatus('error', 'Could not parse flight number. Try e.g. UA123 or UAL123.');
+        return;
+      }
+
+      clearTimeout(refreshTimer);
+      clearInterval(countdownInterval);
+      document.getElementById('trackBtn').disabled = true;
+      document.getElementById('emptyState').style.display = 'none';
+      setStatus('', `Looking up ${callsign}…`);
+
+      try {
+        const url = `https://api.airplanes.live/v2/callsign/${encodeURIComponent(callsign)}`;
+        const res = await fetch(url);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const json = await res.json();
+
+        const ac = json.ac;
+        if (!ac || ac.length === 0) {
+          setStatus('error', `No live data for ${callsign}. The flight may not be airborne yet.`);
+          document.getElementById('infoGrid').style.display = 'none';
+          document.getElementById('refreshRow').style.display = 'none';
+          document.getElementById('emptyState').style.display = 'block';
+          document.getElementById('emptyState').innerHTML = '<div class="empty-icon">🔍</div><p>No live data for <strong>' + callsign + '</strong>.<br>The flight may be on the ground or not broadcasting ADS-B.</p>';
+          document.getElementById('trackBtn').disabled = false;
+          return;
+        }
+
+        const s = ac[0];
+        const lat = s.lat, lon = s.lon, heading = s.track;
+
+        if (lat != null && lon != null) {
+          trailPoints.push([lat, lon]);
+          if (trailPoints.length > 120) trailPoints.shift();
+
+          if (planeMarker) {
+            planeMarker.setLatLng([lat, lon]);
+            planeMarker.setIcon(planeIcon(heading));
+          } else {
+            planeMarker = L.marker([lat, lon], { icon: planeIcon(heading) }).addTo(map);
+            map.flyTo([lat, lon], 6, { duration: 1.5 });
+          }
+
+          if (trailLine) {
+            trailLine.setLatLngs(trailPoints);
+          } else {
+            trailLine = L.polyline(trailPoints, { color: '#7A5BB0', weight: 2, opacity: 0.5, dashArray: '4 6' }).addTo(map);
+          }
+        }
+
+        showInfo(s);
+        const reg = (s.r || '').trim();
+        const type = (s.t || '').trim();
+        setStatus('live', `Live · ${(s.flight || '').trim()}${reg ? ' · ' + reg : ''}${type ? ' · ' + type : ''}`);
+        document.getElementById('refreshRow').style.display = 'flex';
+        startCountdown(30);
+        refreshTimer = setTimeout(track, 30000);
+      } catch (e) {
+        setStatus('error', `Error: ${e.message}`);
+        document.getElementById('refreshRow').style.display = 'flex';
+      } finally {
+        document.getElementById('trackBtn').disabled = false;
+      }
+    }
+
+    document.getElementById('flightInput').addEventListener('keydown', e => {
+      if (e.key === 'Enter') track();
+    });
+  </script>
+</body>
+</html>
