@@ -165,6 +165,19 @@
     .icon-pomodoro { background: rgba(200, 87,  46,  0.15); }
     .icon-desk     { background: rgba(58,  143, 114, 0.15); }
     .icon-trip     { background: rgba(184, 92,  138, 0.15); }
+    .icon-dns      { background: rgba(99,  102, 241, 0.15); }
+    .icon-http     { background: rgba(200, 87,  46,  0.15); }
+
+    .section-label {
+      font-size: 0.68rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      padding: 0 0.25rem;
+      margin-top: 0.5rem;
+    }
+    .section-label:first-child { margin-top: 0; }
   </style>
 </head>
 <body>
@@ -182,6 +195,57 @@
     </header>
 
     <div class="grid">
+      <div class="section-label">Productivity</div>
+
+      <a class="card" href="pomodoro/index.html">
+        <div class="card-icon icon-pomodoro">🍅</div>
+        <div class="card-body">
+          <div class="card-name">Pomodoro</div>
+          <div class="card-desc">Focus timer</div>
+        </div>
+        <span class="card-arrow">→</span>
+      </a>
+
+      <a class="card" href="desk/todo/index.html">
+        <div class="card-icon icon-desk">🗂️</div>
+        <div class="card-body">
+          <div class="card-name">Desk</div>
+          <div class="card-desc">Todo list & bookmarks</div>
+        </div>
+        <span class="card-arrow">→</span>
+      </a>
+
+      <a class="card" href="trip-countdown/index.html">
+        <div class="card-icon icon-trip">✈️</div>
+        <div class="card-body">
+          <div class="card-name">Trip Countdown</div>
+          <div class="card-desc">Countdown to your next trip</div>
+        </div>
+        <span class="card-arrow">→</span>
+      </a>
+
+      <div class="section-label">Dev Tools</div>
+
+      <a class="card" href="dns-lookup/index.html">
+        <div class="card-icon icon-dns">🔍</div>
+        <div class="card-body">
+          <div class="card-name">DNS Lookup</div>
+          <div class="card-desc">Check DNS records for any domain</div>
+        </div>
+        <span class="card-arrow">→</span>
+      </a>
+
+      <a class="card" href="http-toolbox/index.html">
+        <div class="card-icon icon-http">🌐</div>
+        <div class="card-body">
+          <div class="card-name">HTTP Toolbox</div>
+          <div class="card-desc">Lifecycle, versions, cache & more</div>
+        </div>
+        <span class="card-arrow">→</span>
+      </a>
+
+      <div class="section-label">Games</div>
+
       <a class="card" href="flaggle/index.html">
         <div class="card-icon icon-flaggle">🚩</div>
         <div class="card-body">
@@ -196,33 +260,6 @@
         <div class="card-body">
           <div class="card-name">Asteroids</div>
           <div class="card-desc">Classic arcade shooter</div>
-        </div>
-        <span class="card-arrow">→</span>
-      </a>
-
-      <a class="card" href="pomodoro/index.html">
-        <div class="card-icon icon-pomodoro">🍅</div>
-        <div class="card-body">
-          <div class="card-name">Pomodoro</div>
-          <div class="card-desc">Focus timer</div>
-        </div>
-        <span class="card-arrow">→</span>
-      </a>
-
-      <a class="card" href="desk/index.html">
-        <div class="card-icon icon-desk">🗂️</div>
-        <div class="card-body">
-          <div class="card-name">Desk</div>
-          <div class="card-desc">Todo list & bookmarks</div>
-        </div>
-        <span class="card-arrow">→</span>
-      </a>
-
-      <a class="card" href="trip-countdown/index.html">
-        <div class="card-icon icon-trip">✈️</div>
-        <div class="card-body">
-          <div class="card-name">Trip Countdown</div>
-          <div class="card-desc">Countdown to your next trip</div>
         </div>
         <span class="card-arrow">→</span>
       </a>

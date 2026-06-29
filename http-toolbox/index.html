@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>HTTP Toolbox</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,700;1,9..144,400&family=Space+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #1A1A2E; --orange: #C8572E; --yellow: #C99A30; --green: #3A8F72;
+      --indigo: #6366F1; --pink: #B85C8A; --purple: #7A5BB0;
+      --muted: #9CA3AF; --surface: rgba(255,255,255,0.05);
+      --border: rgba(255,255,255,0.09); --text: #F9FAFB;
+    }
+
+    body { background: var(--bg); color: var(--text); font-family: 'Space Grotesk', sans-serif; min-height: 100svh; padding: 0 0 5rem; cursor: none; overflow-x: hidden; }
+
+    .cursor { width: 8px; height: 8px; background: var(--orange); border-radius: 50%; position: fixed; pointer-events: none; z-index: 9999; top: 0; left: 0; mix-blend-mode: screen; transition: transform 0.12s ease; }
+    @media (hover: none) { body { cursor: auto; } .cursor { display: none; } }
+    a, button, input, select, textarea { cursor: none; }
+
+    .blob { position: fixed; border-radius: 50%; filter: blur(90px); opacity: 0.11; pointer-events: none; z-index: 0; }
+    .blob-1 { width: 400px; height: 400px; background: var(--orange); top: -100px; right: -80px; animation: drift 10s ease-in-out infinite; }
+    .blob-2 { width: 260px; height: 260px; background: var(--yellow); bottom: -60px; left: -60px; animation: drift 13s ease-in-out infinite reverse; }
+    .blob-3 { width: 160px; height: 160px; background: var(--purple); top: 45%; right: 25%; animation: drift 8s ease-in-out infinite 2s; }
+    @keyframes drift { 0%,100% { transform: translate(0,0) scale(1); } 33% { transform: translate(22px,-14px) scale(1.05); } 66% { transform: translate(-14px,10px) scale(0.95); } }
+
+    .wrap { position: relative; z-index: 1; max-width: 700px; margin: 0 auto; padding: 0 1.25rem; }
+
+    header { display: flex; align-items: baseline; justify-content: space-between; padding: 1.4rem 0 1rem; border-bottom: 1px solid var(--border); margin-bottom: 1.5rem; }
+    .logo { font-family: 'Fraunces', Georgia, serif; font-size: 1.5rem; font-weight: 700; letter-spacing: -0.01em; }
+    .logo em { font-style: italic; color: var(--orange); font-weight: 400; }
+    .back { font-size: 0.78rem; color: var(--muted); text-decoration: none; transition: color 0.15s; }
+    .back:hover { color: var(--text); }
+
+    /* TABS */
+    .tab-nav { display: flex; gap: 0.35rem; margin-bottom: 1.5rem; overflow-x: auto; padding-bottom: 0.1rem; scrollbar-width: none; }
+    .tab-nav::-webkit-scrollbar { display: none; }
+    .tab-btn { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--muted); font-family: 'Space Grotesk', sans-serif; font-size: 0.78rem; font-weight: 500; padding: 0.38rem 0.8rem; white-space: nowrap; flex-shrink: 0; transition: color 0.15s, border-color 0.15s, background 0.15s; }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { background: rgba(200,87,46,0.18); border-color: var(--orange); color: var(--text); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* SHARED */
+    .btn { border: none; border-radius: 8px; font-family: 'Space Grotesk', sans-serif; font-size: 0.83rem; font-weight: 600; padding: 0.58rem 1.1rem; white-space: nowrap; transition: opacity 0.15s, transform 0.15s; flex-shrink: 0; }
+    .btn:hover { opacity: 0.85; transform: translateY(-1px); }
+    .btn:active { transform: translateY(0); }
+    .btn-orange { background: var(--orange); color: #fff; }
+    .inp { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 0.83rem; padding: 0.58rem 0.85rem; outline: none; transition: border-color 0.2s; width: 100%; }
+    .inp::placeholder { color: var(--muted); }
+    .inp:focus { border-color: var(--orange); }
+    .row { display: flex; gap: 0.5rem; align-items: flex-end; }
+
+    /* CONCEPTS */
+    .concept-section { margin-bottom: 2rem; }
+    .concept-heading { font-family: 'Fraunces', Georgia, serif; font-size: 1.05rem; font-weight: 700; margin-bottom: 0.85rem; display: flex; align-items: center; gap: 0.5rem; }
+    .concept-heading span { font-family: 'Space Grotesk', sans-serif; font-size: 0.7rem; font-weight: 400; color: var(--muted); }
+
+    .status-groups { display: flex; flex-direction: column; gap: 0.5rem; }
+    .status-group-label { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin-bottom: 0.4rem; }
+    .status-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0.4rem; margin-bottom: 0.5rem; }
+    .sc { background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 0.55rem 0.75rem; }
+    .sc-code { font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; font-weight: 500; margin-bottom: 0.12rem; }
+    .sc-name { font-size: 0.72rem; color: var(--text); font-weight: 600; margin-bottom: 0.1rem; }
+    .sc-desc { font-size: 0.67rem; color: var(--muted); line-height: 1.4; }
+    .sc-1xx .sc-code { color: #94a3b8; }
+    .sc-2xx .sc-code { color: #5ECFA8; }
+    .sc-3xx .sc-code { color: #E8B84B; }
+    .sc-4xx .sc-code { color: #E87A52; }
+    .sc-5xx .sc-code { color: #F87171; }
+
+    .method-table { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .mrow { display: grid; grid-template-columns: 80px 1fr 52px 52px 52px; border-bottom: 1px solid rgba(255,255,255,0.04); align-items: center; }
+    .mrow:last-child { border-bottom: none; }
+    .mrow.mhead { background: rgba(255,255,255,0.03); }
+    .mc { padding: 0.55rem 0.75rem; font-size: 0.75rem; }
+    .mc.mname { font-family: 'JetBrains Mono', monospace; font-weight: 500; }
+    .mc.mpurpose { color: var(--muted); }
+    .mc.mth { font-weight: 600; font-size: 0.7rem; color: var(--muted); text-align: center; }
+    .mc.mcenter { text-align: center; }
+    .pill-y { background: rgba(58,143,114,0.2);  color: #5ECFA8; font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 3px; font-weight: 600; }
+    .pill-n { background: rgba(200,87,46,0.15);  color: #E87A52; font-size: 0.65rem; padding: 0.1rem 0.4rem; border-radius: 3px; font-weight: 600; }
+
+    .hdr-groups { display: flex; flex-direction: column; gap: 0.35rem; }
+    .hdr-group-label { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); margin: 0.6rem 0 0.3rem; }
+    .hdr-row { background: var(--surface); border: 1px solid var(--border); border-radius: 9px; padding: 0.55rem 0.8rem; }
+    .hdr-name { font-family: 'JetBrains Mono', monospace; font-size: 0.76rem; color: var(--orange); margin-bottom: 0.1rem; }
+    .hdr-desc { font-size: 0.7rem; color: var(--muted); line-height: 1.4; }
+
+    /* LIFECYCLE */
+    .lc-steps { margin-top: 1rem; }
+    .lc-step { display: flex; align-items: flex-start; gap: 0.9rem; opacity: 0.3; transition: opacity 0.35s; }
+    .lc-step.active { opacity: 1; }
+    .lc-step.done   { opacity: 0.65; }
+    .lc-left { display: flex; flex-direction: column; align-items: center; flex-shrink: 0; }
+    .lc-icon { width: 34px; height: 34px; border-radius: 50%; background: var(--surface); border: 1px solid var(--border); display: flex; align-items: center; justify-content: center; font-size: 0.9rem; transition: border-color 0.3s, background 0.3s; }
+    .lc-step.active .lc-icon { border-color: var(--orange); background: rgba(200,87,46,0.15); }
+    .lc-step.done   .lc-icon { border-color: var(--green);  background: rgba(58,143,114,0.15); }
+    .lc-line { width: 1px; flex: 1; min-height: 18px; background: var(--border); margin: 4px 0; }
+    .lc-body { padding: 0.15rem 0 1.2rem; flex: 1; }
+    .lc-title { font-weight: 600; font-size: 0.88rem; margin-bottom: 0.18rem; display: flex; align-items: center; gap: 0.4rem; }
+    .lc-ms { font-size: 0.68rem; font-family: 'JetBrains Mono', monospace; color: var(--orange); }
+    .lc-detail { font-size: 0.75rem; color: var(--muted); line-height: 1.55; }
+    .lc-code { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; background: rgba(255,255,255,0.04); border: 1px solid var(--border); border-radius: 6px; padding: 0.4rem 0.65rem; margin-top: 0.45rem; color: #a5b4fc; white-space: pre; overflow-x: auto; }
+
+    /* HTTP VERSIONS */
+    .ver-cols { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.65rem; margin-bottom: 1.25rem; }
+    @media (max-width: 540px) { .ver-cols { grid-template-columns: 1fr; } }
+    .ver-col { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .ver-head { padding: 0.65rem 0.9rem; border-bottom: 1px solid var(--border); }
+    .ver-name { font-family: 'Fraunces', serif; font-size: 0.95rem; font-weight: 700; }
+    .ver-sub  { font-size: 0.68rem; color: var(--muted); margin-top: 0.1rem; }
+    .ver-viz  { padding: 0.75rem 0.9rem; height: 110px; position: relative; }
+    .ver-desc { padding: 0 0.9rem 0.75rem; font-size: 0.72rem; color: var(--muted); line-height: 1.5; }
+    .v-lane   { display: flex; align-items: center; height: 16px; margin-bottom: 5px; position: relative; }
+    .v-track  { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,0.07); }
+    .v-pkt    { position: absolute; height: 9px; border-radius: 3px; display: flex; align-items: center; justify-content: center; font-size: 0.55rem; color: rgba(255,255,255,0.9); font-family: 'JetBrains Mono', monospace; }
+    .pkt-req  { background: rgba(200,87,46,0.75); }
+    .pkt-res  { background: rgba(58,143,114,0.75); }
+    .comp-table { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .comp-row { display: grid; grid-template-columns: 1.5fr 1fr 1fr 1fr; border-bottom: 1px solid rgba(255,255,255,0.04); }
+    .comp-row:last-child { border-bottom: none; }
+    .comp-row.thead { background: rgba(255,255,255,0.03); }
+    .comp-cell { padding: 0.55rem 0.8rem; font-size: 0.75rem; }
+    .comp-cell.feat { color: var(--muted); font-weight: 500; }
+    .comp-cell.th   { font-weight: 600; font-size: 0.78rem; }
+    .yes  { color: #5ECFA8; }
+    .no   { color: #F87171; }
+    .part { color: var(--yellow); }
+
+    /* CACHE */
+    .cache-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 0.65rem 0.9rem; display: flex; align-items: center; gap: 0.65rem; flex-wrap: wrap; margin-bottom: 1.1rem; }
+    .cache-bar-label { font-size: 0.75rem; color: var(--muted); flex-shrink: 0; }
+    .cache-bar-val { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: #a5b4fc; flex: 1; word-break: break-all; }
+    .dir-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.55rem; margin-bottom: 1.25rem; }
+    @media (max-width: 500px) { .dir-grid { grid-template-columns: 1fr; } }
+    .dir-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 0.7rem 0.85rem; transition: border-color 0.2s, background 0.2s; }
+    .dir-card.on { border-color: rgba(200,87,46,0.4); background: rgba(200,87,46,0.05); }
+    .dir-top { display: flex; align-items: center; gap: 0.45rem; margin-bottom: 0.35rem; }
+    .dir-chk { width: 15px; height: 15px; border: 1.5px solid var(--border); border-radius: 3px; background: none; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.15s, border-color 0.15s; }
+    .dir-chk.on { background: var(--orange); border-color: var(--orange); }
+    .dir-chk.on::after { content: '✓'; color: #fff; font-size: 0.6rem; }
+    .dir-name { font-family: 'JetBrains Mono', monospace; font-size: 0.76rem; color: var(--text); }
+    .dir-valinput { margin: 0.3rem 0 0.3rem 1.25rem; }
+    .dir-valinput input { background: rgba(255,255,255,0.07); border: 1px solid var(--border); border-radius: 5px; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 0.73rem; padding: 0.22rem 0.5rem; outline: none; width: 100%; transition: border-color 0.2s; }
+    .dir-valinput input:focus { border-color: var(--orange); }
+    .dir-desc { font-size: 0.68rem; color: var(--muted); line-height: 1.45; margin-left: 1.25rem; }
+    .tl-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 0.9rem 1rem; }
+    .tl-title { font-size: 0.7rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.8rem; }
+    .tl-bar { margin-bottom: 0.55rem; }
+    .tl-bar-label { display: flex; justify-content: space-between; font-size: 0.68rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; margin-bottom: 0.18rem; }
+    .tl-track { height: 9px; background: rgba(255,255,255,0.06); border-radius: 4px; overflow: hidden; }
+    .tl-fill { height: 100%; border-radius: 4px; transition: width 0.4s ease; min-width: 2px; }
+    .fill-green  { background: var(--green); }
+    .fill-yellow { background: var(--yellow); }
+    .fill-indigo { background: var(--indigo); }
+  </style>
+</head>
+<body>
+  <div class="cursor" id="cursor"></div>
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+
+  <div class="wrap">
+    <header>
+      <div class="logo">http<em>toolbox</em></div>
+      <a class="back" href="../index.html">← back</a>
+    </header>
+
+    <nav class="tab-nav" id="tabNav">
+      <button class="tab-btn active" data-tab="lifecycle">Lifecycle</button>
+      <button class="tab-btn" data-tab="versions">HTTP Versions</button>
+      <button class="tab-btn" data-tab="cache">Cache</button>
+      <button class="tab-btn" data-tab="concepts">Concepts</button>
+    </nav>
+
+    <!-- ── CONCEPTS ── -->
+    <div class="tab-panel" id="tab-concepts">
+      <div class="concept-section">
+        <div class="concept-heading">Status Codes <span>what the server is telling you</span></div>
+        <div class="status-groups" id="statusGroups"></div>
+      </div>
+      <div class="concept-section">
+        <div class="concept-heading">HTTP Methods <span>what actions you can take</span></div>
+        <div class="method-table" id="methodTable"></div>
+      </div>
+      <div class="concept-section">
+        <div class="concept-heading">Common Headers <span>request &amp; response metadata</span></div>
+        <div class="hdr-groups" id="hdrGroups"></div>
+      </div>
+    </div>
+
+    <!-- ── LIFECYCLE ── -->
+    <div class="tab-panel active" id="tab-lifecycle">
+      <div class="row" style="margin-bottom:0.25rem">
+        <input id="lcUrl" class="inp" style="flex:1" value="https://example.com" placeholder="https://example.com">
+        <button id="lcBtn" class="btn btn-orange">Animate</button>
+      </div>
+      <p style="font-size:0.72rem;color:var(--muted);margin-bottom:0.85rem">What actually happens when a browser loads a URL.</p>
+      <div class="lc-steps" id="lcSteps"></div>
+    </div>
+
+    <!-- ── HTTP VERSIONS ── -->
+    <div class="tab-panel" id="tab-versions">
+      <p style="font-size:0.75rem;color:var(--muted);margin-bottom:1.1rem">How HTTP evolved to handle multiple requests more efficiently.</p>
+      <div class="ver-cols" id="verCols"></div>
+      <div class="comp-table" id="compTable"></div>
+    </div>
+
+    <!-- ── CACHE ── -->
+    <div class="tab-panel" id="tab-cache">
+      <p style="font-size:0.75rem;color:var(--muted);margin-bottom:0.85rem">Toggle directives to build a Cache-Control header.</p>
+      <div class="cache-bar">
+        <span class="cache-bar-label">Cache-Control:</span>
+        <span class="cache-bar-val" id="cacheVal">no directives selected</span>
+        <button class="copy-btn" id="copyCacheBtn">copy</button>
+      </div>
+      <div class="dir-grid" id="dirGrid"></div>
+      <div class="tl-box">
+        <div class="tl-title">Cache Lifetime</div>
+        <div id="tlContent"><p style="font-size:0.73rem;color:var(--muted)">Enable max-age to see the visualization.</p></div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  /* ── CURSOR ── */
+  const cursor = document.getElementById('cursor');
+  document.addEventListener('mousemove', e => { cursor.style.transform = `translate(${e.clientX-4}px,${e.clientY-4}px)`; });
+
+  /* ── TAB SWITCHING ── */
+  document.getElementById('tabNav').addEventListener('click', e => {
+    const b = e.target.closest('.tab-btn'); if (!b) return;
+    document.querySelectorAll('.tab-btn').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    document.getElementById('tab-' + b.dataset.tab).classList.add('active');
+  });
+
+  /* ═══════════════════════════
+     HTTP CONCEPTS
+  ═══════════════════════════ */
+  const STATUS_CODES = {
+    '1xx Informational': [
+      { code:100, name:'Continue',            desc:'Server received request headers; client should proceed with body.' },
+      { code:101, name:'Switching Protocols', desc:'Server agrees to upgrade protocol (e.g. HTTP → WebSocket).' },
+    ],
+    '2xx Success': [
+      { code:200, name:'OK',                  desc:'Standard success. Response body contains the requested data.' },
+      { code:201, name:'Created',             desc:'Resource successfully created. Location header often points to it.' },
+      { code:204, name:'No Content',          desc:'Success, but no body. Common after DELETE or PUT.' },
+      { code:206, name:'Partial Content',     desc:'Response is a range of the resource (used for video streaming, resumable downloads).' },
+    ],
+    '3xx Redirection': [
+      { code:301, name:'Moved Permanently',   desc:'Resource has a new permanent URL. Browsers cache this redirect.' },
+      { code:302, name:'Found',               desc:'Temporary redirect. Browser goes to Location, but keeps original URL.' },
+      { code:304, name:'Not Modified',        desc:'Cached version is still valid. Server sends no body — use your cache.' },
+      { code:307, name:'Temporary Redirect',  desc:'Like 302 but method must not change (POST stays POST).' },
+      { code:308, name:'Permanent Redirect',  desc:'Like 301 but method must not change.' },
+    ],
+    '4xx Client Error': [
+      { code:400, name:'Bad Request',         desc:'Malformed syntax, invalid parameters, or missing required fields.' },
+      { code:401, name:'Unauthorized',        desc:'Authentication required (despite the name, it means "unauthenticated").' },
+      { code:403, name:'Forbidden',           desc:'Authenticated but not allowed to access this resource.' },
+      { code:404, name:'Not Found',           desc:'Resource doesn\'t exist at this URL.' },
+      { code:405, name:'Method Not Allowed',  desc:'HTTP method not supported for this endpoint.' },
+      { code:409, name:'Conflict',            desc:'Request conflicts with current state (e.g. duplicate, version mismatch).' },
+      { code:422, name:'Unprocessable Entity',desc:'Well-formed request but semantically invalid (common in APIs for validation errors).' },
+      { code:429, name:'Too Many Requests',   desc:'Rate limit exceeded. Check Retry-After header for when to try again.' },
+    ],
+    '5xx Server Error': [
+      { code:500, name:'Internal Server Error',desc:'Generic server crash. Check logs.' },
+      { code:502, name:'Bad Gateway',          desc:'Upstream server (e.g. origin behind a load balancer) returned an invalid response.' },
+      { code:503, name:'Service Unavailable',  desc:'Server is down or overloaded. Often temporary.' },
+      { code:504, name:'Gateway Timeout',      desc:'Upstream server didn\'t respond in time.' },
+    ],
+  };
+
+  const sgEl = document.getElementById('statusGroups');
+  Object.entries(STATUS_CODES).forEach(([group, codes]) => {
+    const cls = 'sc-' + group.slice(0,3).toLowerCase();
+    sgEl.innerHTML += `<div class="status-group-label">${group}</div>
+      <div class="status-grid">${codes.map(s => `
+        <div class="sc ${cls}">
+          <div class="sc-code">${s.code}</div>
+          <div class="sc-name">${s.name}</div>
+          <div class="sc-desc">${s.desc}</div>
+        </div>`).join('')}
+      </div>`;
+  });
+
+  const METHODS = [
+    { name:'GET',     purpose:'Retrieve a resource',          safe:true,  idem:true,  body:false },
+    { name:'POST',    purpose:'Create or submit data',        safe:false, idem:false, body:true  },
+    { name:'PUT',     purpose:'Replace a resource entirely',  safe:false, idem:true,  body:true  },
+    { name:'PATCH',   purpose:'Partially update a resource',  safe:false, idem:false, body:true  },
+    { name:'DELETE',  purpose:'Remove a resource',            safe:false, idem:true,  body:false },
+    { name:'HEAD',    purpose:'Like GET, but no body',        safe:true,  idem:true,  body:false },
+    { name:'OPTIONS', purpose:'Get allowed methods / CORS preflight', safe:true, idem:true, body:false },
+  ];
+
+  const pill = v => v ? '<span class="pill-y">Yes</span>' : '<span class="pill-n">No</span>';
+  document.getElementById('methodTable').innerHTML = `
+    <div class="mrow mhead">
+      <div class="mc mth">Method</div><div class="mc mth">Purpose</div>
+      <div class="mc mth">Safe</div><div class="mc mth">Idempotent</div><div class="mc mth">Body</div>
+    </div>
+    ${METHODS.map(m => `<div class="mrow">
+      <div class="mc mname" style="color:var(--orange)">${m.name}</div>
+      <div class="mc mpurpose">${m.purpose}</div>
+      <div class="mc mcenter">${pill(m.safe)}</div>
+      <div class="mc mcenter">${pill(m.idem)}</div>
+      <div class="mc mcenter">${pill(m.body)}</div>
+    </div>`).join('')}`;
+
+  const HEADERS = {
+    'Request': [
+      { name:'Authorization',   desc:'Credentials for authentication. e.g. Bearer <token> or Basic <base64>.' },
+      { name:'Content-Type',    desc:'MIME type of the request body. e.g. application/json, multipart/form-data.' },
+      { name:'Accept',          desc:'MIME types the client can handle in the response.' },
+      { name:'Accept-Encoding', desc:'Compression algorithms the client supports. e.g. gzip, br, deflate.' },
+      { name:'Cookie',          desc:'Sends stored cookies back to the server.' },
+      { name:'User-Agent',      desc:'Identifies the client software (browser, curl, SDK version, etc.).' },
+      { name:'Referer',         desc:'URL of the page that made the request. Note: intentionally misspelled.' },
+      { name:'If-None-Match',   desc:'Sends the cached ETag back; server returns 304 if unchanged.' },
+      { name:'If-Modified-Since',desc:'Conditional request — only respond if resource changed since this date.' },
+    ],
+    'Response': [
+      { name:'Content-Type',    desc:'MIME type of the response body. Tells the browser how to parse it.' },
+      { name:'Content-Length',  desc:'Size of the response body in bytes.' },
+      { name:'Content-Encoding',desc:'Compression applied: gzip, br, deflate.' },
+      { name:'Cache-Control',   desc:'Caching directives: max-age, no-store, private, etc.' },
+      { name:'ETag',            desc:'Fingerprint of the resource version. Returned for conditional request validation.' },
+      { name:'Last-Modified',   desc:'When the resource was last changed.' },
+      { name:'Location',        desc:'Redirect destination. Used with 3xx responses or 201 Created.' },
+      { name:'Set-Cookie',      desc:'Instructs the browser to store a cookie.' },
+      { name:'Vary',            desc:'Which request headers affect the response (used by caches to key variants).' },
+      { name:'Age',             desc:'Seconds the object has been sitting in a proxy or CDN cache.' },
+    ],
+    'Security': [
+      { name:'Strict-Transport-Security', desc:'HSTS: forces HTTPS for this domain for max-age seconds. add includeSubDomains for full coverage.' },
+      { name:'Content-Security-Policy',   desc:'Controls which resources (scripts, styles, images) the browser may load.' },
+      { name:'X-Frame-Options',           desc:'Blocks the page from being embedded in an iframe. Prevents clickjacking. (Superseded by CSP frame-ancestors.)' },
+      { name:'X-Content-Type-Options',    desc:'nosniff: browser must not override the declared Content-Type.' },
+      { name:'Referrer-Policy',           desc:'Controls how much referrer info is sent: no-referrer, same-origin, strict-origin-when-cross-origin, etc.' },
+      { name:'Permissions-Policy',        desc:'Restricts browser features (camera, geolocation, autoplay) available to the page.' },
+    ],
+    'CORS': [
+      { name:'Access-Control-Allow-Origin',  desc:'Which origins may read the response. * = any. Must match exactly for credentialed requests.' },
+      { name:'Access-Control-Allow-Methods', desc:'Methods allowed in cross-origin requests. Returned in preflight response.' },
+      { name:'Access-Control-Allow-Headers', desc:'Which request headers are permitted in cross-origin requests.' },
+      { name:'Access-Control-Expose-Headers',desc:'Which response headers JS is allowed to read (beyond the safelisted defaults).' },
+      { name:'Access-Control-Max-Age',       desc:'How long the preflight result can be cached (seconds).' },
+      { name:'Access-Control-Allow-Credentials', desc:'true = cookies and auth headers may be included in cross-origin requests.' },
+    ],
+  };
+
+  const hgEl = document.getElementById('hdrGroups');
+  Object.entries(HEADERS).forEach(([group, hdrs]) => {
+    hgEl.innerHTML += `<div class="hdr-group-label">${group}</div>
+      ${hdrs.map(h => `<div class="hdr-row">
+        <div class="hdr-name">${h.name}</div>
+        <div class="hdr-desc">${h.desc}</div>
+      </div>`).join('')}`;
+  });
+
+  /* ═══════════════════════════
+     REQUEST LIFECYCLE
+  ═══════════════════════════ */
+  const LC_STEPS = [
+    { icon:'🔍', title:'DNS Resolution',
+      detail:'Browser checks its own cache → OS cache → queries a recursive DNS resolver → authoritative nameserver returns the IP.',
+      code: url => { try { const h=new URL(url).hostname; return `query: ${h}\n→ answer: 93.184.216.34 (TTL 3600s)`; } catch { return 'query: example.com\n→ answer: 93.184.216.34'; } },
+      ms:[2,80] },
+    { icon:'🤝', title:'TCP Handshake',
+      detail:'A 3-way handshake opens a reliable TCP connection to the server on port 443.',
+      code: () => 'Client → SYN\nServer ← SYN-ACK\nClient → ACK  ✓ connected',
+      ms:[8,50] },
+    { icon:'🔒', title:'TLS Handshake',
+      detail:'Client and server negotiate cipher suites, exchange keys, and verify the server certificate. Required for HTTPS.',
+      code: () => 'ClientHello → cipher suites, SNI\n← ServerHello + Certificate\nKey exchange → Finished\n✓ encrypted tunnel',
+      ms:[20,100], httpsOnly:true },
+    { icon:'📤', title:'HTTP Request Sent',
+      detail:'The browser sends the HTTP request — method, path, headers, and optional body — through the encrypted tunnel.',
+      code: url => { try { const u=new URL(url); return `GET ${u.pathname||'/'} HTTP/2\nHost: ${u.hostname}\nAccept: text/html\nUser-Agent: Mozilla/5.0`; } catch { return 'GET / HTTP/2\nHost: example.com'; }},
+      ms:[1,5] },
+    { icon:'⚙️', title:'Server Processing',
+      detail:'Server routes the request, queries databases, checks caches, runs application logic, and serializes the response.',
+      code: () => 'Router → Controller\nCache check → DB query\nTemplate render\nJSON/HTML serialize',
+      ms:[5,500] },
+    { icon:'📥', title:'HTTP Response',
+      detail:'Server sends back the status, response headers, and body. Large bodies arrive in multiple TCP segments.',
+      code: () => 'HTTP/2 200 OK\ncontent-type: text/html; charset=utf-8\ncache-control: max-age=3600\ncontent-length: 1234\n\n<html>…',
+      ms:[1,8] },
+    { icon:'🖥️', title:'Browser Render',
+      detail:'Parse HTML → build DOM → parse CSS → CSSOM → layout → paint → composite. Sub-resources (JS, CSS, images) fetched in parallel.',
+      code: () => 'Parse HTML → DOM\nFetch sub-resources (parallel)\nParse CSS → CSSOM\nLayout → Paint → Composite\nDOMContentLoaded → load',
+      ms:[50,2000] },
+  ];
+
+  const lcStepsEl = document.getElementById('lcSteps');
+  lcStepsEl.innerHTML = LC_STEPS.map((s,i) => `
+    <div class="lc-step" id="lc${i}">
+      <div class="lc-left">
+        <div class="lc-icon">${s.icon}</div>
+        ${i < LC_STEPS.length-1 ? '<div class="lc-line"></div>' : ''}
+      </div>
+      <div class="lc-body">
+        <div class="lc-title">${s.title}<span class="lc-ms" id="lcms${i}" style="display:none"></span></div>
+        <div class="lc-detail">${s.detail}</div>
+        <div class="lc-code" id="lcc${i}" style="display:none"></div>
+      </div>
+    </div>`).join('');
+
+  document.getElementById('lcBtn').addEventListener('click', () => {
+    const url = document.getElementById('lcUrl').value.trim() || 'https://example.com';
+    const https = url.startsWith('https://');
+    LC_STEPS.forEach((_,i) => {
+      document.getElementById(`lc${i}`).className = 'lc-step';
+      document.getElementById(`lcms${i}`).style.display = 'none';
+      document.getElementById(`lcc${i}`).style.display = 'none';
+    });
+    let delay = 0;
+    LC_STEPS.forEach((s,i) => {
+      if (s.httpsOnly && !https) return;
+      setTimeout(() => {
+        document.getElementById(`lc${i}`).className = 'lc-step active';
+        const ms = s.ms[0] + Math.floor(Math.random()*(s.ms[1]-s.ms[0]));
+        const msEl = document.getElementById(`lcms${i}`);
+        msEl.textContent = `~${ms}ms`; msEl.style.display = '';
+        const cEl = document.getElementById(`lcc${i}`);
+        cEl.textContent = s.code(url); cEl.style.display = '';
+      }, delay);
+      setTimeout(() => { document.getElementById(`lc${i}`).className = 'lc-step done'; }, delay+700);
+      delay += 820;
+    });
+  });
+
+  /* ═══════════════════════════
+     HTTP VERSIONS
+  ═══════════════════════════ */
+  const VERSIONS = [
+    { name:'HTTP/1.1', year:'1997', color:'var(--orange)', tagline:'Sequential, head-of-line blocking',
+      desc:'One request at a time per connection. Persistent by default but blocked on the previous response.',
+      lanes:[
+        [{ t:'req',x:0,w:28 },{ t:'res',x:32,w:32 }],
+        [{ t:'req',x:68,w:28 },{ t:'res',x:100 > 100 ? 96 : 100,w:0 }],  // effectively delayed
+        [],[]
+      ]
+    },
+    { name:'HTTP/2', year:'2015', color:'var(--indigo)', tagline:'Multiplexed streams',
+      desc:'Multiple streams on one TCP connection, simultaneous. Header compression via HPACK.',
+      lanes:[
+        [{ t:'req',x:0,w:22 },{ t:'res',x:55,w:45 }],
+        [{ t:'req',x:0,w:22 },{ t:'res',x:28,w:30 }],
+        [{ t:'req',x:0,w:22 },{ t:'res',x:28,w:20 }],
+        [{ t:'req',x:0,w:22 },{ t:'res',x:28,w:55 }],
+      ]
+    },
+    { name:'HTTP/3', year:'2022', color:'var(--green)', tagline:'QUIC over UDP',
+      desc:'Runs on QUIC (UDP-based). No transport HOL blocking, faster 0-RTT reconnection.',
+      lanes:[
+        [{ t:'req',x:0,w:14 },{ t:'res',x:42,w:45 }],
+        [{ t:'req',x:0,w:14 },{ t:'res',x:18,w:30 }],
+        [{ t:'req',x:0,w:14 },{ t:'res',x:18,w:18 }],
+        [{ t:'req',x:0,w:14 },{ t:'res',x:18,w:55 }],
+      ]
+    },
+  ];
+
+  const verColsEl = document.getElementById('verCols');
+  VERSIONS.forEach(v => {
+    const vizHtml = v.lanes.map(lane => {
+      const pkts = lane.map(p => `<div class="v-pkt pkt-${p.t}" style="left:${Math.min(p.x,96)}%;width:${p.w}%">${p.t}</div>`).join('');
+      return `<div class="v-lane"><div class="v-track"></div>${pkts}</div>`;
+    }).join('');
+    verColsEl.innerHTML += `<div class="ver-col">
+      <div class="ver-head">
+        <div class="ver-name" style="color:${v.color}">${v.name}</div>
+        <div class="ver-sub">${v.year} · ${v.tagline}</div>
+      </div>
+      <div class="ver-viz">${vizHtml}</div>
+      <div class="ver-desc">${v.desc}</div>
+    </div>`;
+  });
+
+  const COMP = [
+    ['Protocol',               'TCP',            'TCP',           'QUIC (UDP)'],
+    ['Multiplexing',           '✗',              '✓',             '✓'],
+    ['Header compression',     '✗',              '✓ HPACK',       '✓ QPACK'],
+    ['Transport HOL blocking', 'Yes',            'Yes',           'No'],
+    ['TLS required',           'No',             'De facto yes',  'Yes'],
+    ['0-RTT reconnection',     'No',             'No',            'Yes'],
+    ['Binary framing',         'No',             'Yes',           'Yes'],
+  ];
+
+  const ct = document.getElementById('compTable');
+  ct.innerHTML = `<div class="comp-row thead">
+    <div class="comp-cell th feat">Feature</div>
+    <div class="comp-cell th" style="color:var(--orange)">HTTP/1.1</div>
+    <div class="comp-cell th" style="color:var(--indigo)">HTTP/2</div>
+    <div class="comp-cell th" style="color:var(--green)">HTTP/3</div>
+  </div>` + COMP.map(([f,...vs]) => `<div class="comp-row">
+    <div class="comp-cell feat">${f}</div>
+    ${vs.map(v => `<div class="comp-cell">${v==='✓'?'<span class="yes">✓</span>':v==='✗'?'<span class="no">✗</span>':v==='Yes'?'<span class="no">Yes</span>':v==='No'?'<span class="yes">No</span>':v}</div>`).join('')}
+  </div>`).join('');
+
+  /* ═══════════════════════════
+     CACHE EXPLAINER
+  ═══════════════════════════ */
+  const DIRS = [
+    { name:'max-age',               val:true,  def:'3600',  desc:'Max seconds the response is considered fresh by any cache.' },
+    { name:'s-maxage',              val:true,  def:'86400', desc:'Like max-age but for shared caches (CDNs). Overrides max-age for them.' },
+    { name:'stale-while-revalidate',val:true,  def:'60',    desc:'Serve stale for N seconds while revalidating in the background.' },
+    { name:'no-cache',              val:false, def:'',      desc:'Must revalidate before serving. Does not mean "don\'t cache".' },
+    { name:'no-store',              val:false, def:'',      desc:'Never cache. Every request hits the origin server.' },
+    { name:'public',                val:false, def:'',      desc:'Any cache (browser, CDN, proxy) may store this response.' },
+    { name:'private',               val:false, def:'',      desc:'Only the browser cache. CDNs and shared caches must not store.' },
+    { name:'must-revalidate',       val:false, def:'',      desc:'After max-age expires, must revalidate — cannot serve stale.' },
+    { name:'immutable',             val:false, def:'',      desc:'Content will never change. Skip revalidation during max-age even on refresh.' },
+    { name:'proxy-revalidate',      val:false, def:'',      desc:'Like must-revalidate but only for shared/proxy caches.' },
+  ];
+
+  const dirState = {};
+  DIRS.forEach(d => { dirState[d.name] = { on: false, val: d.def }; });
+
+  const dirGrid = document.getElementById('dirGrid');
+  DIRS.forEach(d => {
+    const card = document.createElement('div');
+    card.className = 'dir-card'; card.id = `dc-${d.name}`;
+    card.innerHTML = `<div class="dir-top">
+      <button class="dir-chk" id="dchk-${d.name}" onclick="toggleDir('${d.name}')"></button>
+      <span class="dir-name">${d.name}${d.val ? `=<span id="dvp-${d.name}">${d.def}</span>` : ''}</span>
+    </div>
+    ${d.val ? `<div class="dir-valinput"><input type="number" value="${d.def}" min="0" oninput="dirInput('${d.name}',this.value)" placeholder="seconds"></div>` : ''}
+    <div class="dir-desc">${d.desc}</div>`;
+    dirGrid.appendChild(card);
+  });
+
+  function toggleDir(name) {
+    dirState[name].on = !dirState[name].on;
+    document.getElementById(`dchk-${name}`).classList.toggle('on', dirState[name].on);
+    document.getElementById(`dc-${name}`).classList.toggle('on', dirState[name].on);
+    updateCache();
+  }
+
+  function dirInput(name, v) {
+    dirState[name].val = v;
+    const p = document.getElementById(`dvp-${name}`);
+    if (p) p.textContent = v || '…';
+    updateCache();
+  }
+
+  function updateCache() {
+    const parts = [];
+    DIRS.forEach(d => {
+      if (!dirState[d.name].on) return;
+      parts.push(d.val ? `${d.name}=${dirState[d.name].val}` : d.name);
+    });
+    document.getElementById('cacheVal').textContent = parts.length ? parts.join(', ') : 'no directives selected';
+    updateTimeline();
+  }
+
+  document.getElementById('copyCacheBtn').addEventListener('click', e => {
+    const v = document.getElementById('cacheVal').textContent;
+    if (v !== 'no directives selected') copyText(e.currentTarget, `Cache-Control: ${v}`);
+  });
+
+  function updateTimeline() {
+    const tl = document.getElementById('tlContent');
+    const ma  = dirState['max-age'].on              ? (parseInt(dirState['max-age'].val)               || 0) : 0;
+    const sma = dirState['s-maxage'].on             ? (parseInt(dirState['s-maxage'].val)              || 0) : 0;
+    const swr = dirState['stale-while-revalidate'].on? (parseInt(dirState['stale-while-revalidate'].val)|| 0) : 0;
+    const noStore = dirState['no-store'].on;
+
+    if (noStore) { tl.innerHTML = '<p style="font-size:0.73rem;color:var(--muted)">no-store: nothing is cached. Every request hits the server.</p>'; return; }
+    if (!ma && !sma) { tl.innerHTML = '<p style="font-size:0.73rem;color:var(--muted)">Enable max-age or s-maxage to see the visualization.</p>'; return; }
+
+    const max = Math.max(ma, sma, ma+swr, 1);
+    function pct(v) { return Math.max(1, Math.round(Math.min(v,max)/max*100)); }
+    function fmt(s) {
+      if (s >= 86400) return `${(s/86400).toFixed(1)}d`;
+      if (s >= 3600)  return `${(s/3600).toFixed(1)}h`;
+      if (s >= 60)    return `${Math.round(s/60)}m`;
+      return `${s}s`;
+    }
+
+    let html = '';
+    if (ma)  html += bar('max-age (browser)',  fmt(ma),          pct(ma),         'fill-green');
+    if (sma) html += bar('s-maxage (CDN)',     fmt(sma),         pct(sma),        'fill-indigo');
+    if (swr) html += bar('stale-while-revalidate window', `after ${fmt(ma)}, +${fmt(swr)}`, pct(ma+swr), 'fill-yellow');
+    if (dirState['no-cache'].on) html += '<p style="font-size:0.7rem;color:var(--yellow);margin-top:0.45rem">⚠ no-cache: browser must revalidate before using cached response.</p>';
+
+    tl.innerHTML = html;
+  }
+
+  function bar(label, right, pct, cls) {
+    return `<div class="tl-bar">
+      <div class="tl-bar-label"><span>${label}</span><span>${right}</span></div>
+      <div class="tl-track"><div class="tl-fill ${cls}" style="width:${pct}%"></div></div>
+    </div>`;
+  }
+
+  updateTimeline();
+  </script>
+</body>
+</html>

@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>DNS Lookup</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,700;1,9..144,400&family=Space+Grotesk:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #1A1A2E;
+      --orange:  #C8572E;
+      --yellow:  #C99A30;
+      --green:   #3A8F72;
+      --indigo:  #6366F1;
+      --pink:    #B85C8A;
+      --purple:  #7A5BB0;
+      --muted:   #9CA3AF;
+      --surface: rgba(255,255,255,0.05);
+      --border:  rgba(255,255,255,0.09);
+      --text:    #F9FAFB;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Space Grotesk', sans-serif;
+      min-height: 100svh;
+      padding: 0 0 4rem;
+      cursor: none;
+      overflow-x: hidden;
+    }
+
+    .cursor {
+      width: 8px; height: 8px;
+      background: var(--indigo);
+      border-radius: 50%;
+      position: fixed;
+      pointer-events: none;
+      z-index: 9999;
+      top: 0; left: 0;
+      mix-blend-mode: screen;
+      transition: transform 0.12s ease;
+    }
+    @media (hover: none) { body { cursor: auto; } .cursor { display: none; } }
+    a, button, input { cursor: none; }
+
+    .blob {
+      position: fixed;
+      border-radius: 50%;
+      filter: blur(90px);
+      opacity: 0.14;
+      pointer-events: none;
+      z-index: 0;
+    }
+    .blob-1 { width: 420px; height: 420px; background: var(--indigo); top: -100px; right: -80px;  animation: drift 9s  ease-in-out infinite; }
+    .blob-2 { width: 280px; height: 280px; background: var(--purple); bottom: -60px; left: -60px; animation: drift 12s ease-in-out infinite reverse; }
+    .blob-3 { width: 180px; height: 180px; background: var(--green);  top: 50%;  right: 28%;     animation: drift 7s  ease-in-out infinite 2s; }
+
+    @keyframes drift {
+      0%, 100% { transform: translate(0,0) scale(1); }
+      33%       { transform: translate(24px,-16px) scale(1.05); }
+      66%       { transform: translate(-16px,12px) scale(0.95); }
+    }
+
+    .wrap {
+      position: relative;
+      z-index: 1;
+      max-width: 620px;
+      margin: 0 auto;
+      padding: 0 1.25rem;
+    }
+
+    header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      padding: 1.4rem 0 1rem;
+      border-bottom: 1px solid var(--border);
+      margin-bottom: 2rem;
+    }
+
+    .logo {
+      font-family: 'Fraunces', Georgia, serif;
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+    }
+    .logo em { font-style: italic; color: var(--indigo); font-weight: 400; }
+
+    .back {
+      font-size: 0.78rem;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.15s;
+    }
+    .back:hover { color: var(--text); }
+
+    /* Search bar */
+    .search-row {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 1rem;
+    }
+
+    .domain-input {
+      flex: 1;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.95rem;
+      padding: 0.75rem 1rem;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+    .domain-input::placeholder { color: var(--muted); }
+    .domain-input:focus { border-color: var(--indigo); }
+
+    .lookup-btn {
+      background: var(--indigo);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 600;
+      padding: 0.75rem 1.4rem;
+      transition: opacity 0.15s, transform 0.15s;
+    }
+    .lookup-btn:hover { opacity: 0.85; transform: translateY(-1px); }
+    .lookup-btn:active { transform: translateY(0); }
+    .lookup-btn:disabled { opacity: 0.4; }
+
+    /* Type tabs */
+    .type-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.4rem;
+      margin-bottom: 1.75rem;
+    }
+
+    .type-tab {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      color: var(--muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      font-weight: 500;
+      padding: 0.3rem 0.65rem;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .type-tab:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+    .type-tab.active {
+      background: rgba(99,102,241,0.18);
+      border-color: var(--indigo);
+      color: #fff;
+    }
+
+    /* Results */
+    .results { display: flex; flex-direction: column; gap: 1rem; }
+
+    .record-group {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
+    .group-header {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1.1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .type-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      font-weight: 500;
+      padding: 0.2rem 0.5rem;
+      border-radius: 5px;
+      letter-spacing: 0.04em;
+    }
+
+    .badge-A     { background: rgba(58,143,114,0.2);  color: #5ECFA8; }
+    .badge-AAAA  { background: rgba(58,143,114,0.2);  color: #5ECFA8; }
+    .badge-MX    { background: rgba(200,87,46,0.2);   color: #E87A52; }
+    .badge-TXT   { background: rgba(200,154,48,0.2);  color: #E8B84B; }
+    .badge-NS    { background: rgba(99,102,241,0.2);  color: #818CF8; }
+    .badge-CNAME { background: rgba(184,92,138,0.2);  color: #D580B0; }
+    .badge-CAA   { background: rgba(122,91,176,0.2);  color: #A78BDA; }
+    .badge-SOA   { background: rgba(156,163,175,0.15);color: #9CA3AF; }
+    .badge-SRV   { background: rgba(156,163,175,0.15);color: #9CA3AF; }
+
+    .group-count {
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-left: auto;
+    }
+
+    .group-desc {
+      font-size: 0.75rem;
+      color: var(--muted);
+      line-height: 1.5;
+      padding: 0.55rem 1.1rem;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255,255,255,0.02);
+    }
+
+    .record-row {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      padding: 0.7rem 1.1rem;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      transition: background 0.15s;
+    }
+    .record-row:last-child { border-bottom: none; }
+    .record-row:hover { background: rgba(255,255,255,0.03); }
+
+    .record-value {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      color: var(--text);
+      word-break: break-all;
+      flex: 1;
+    }
+
+    .record-ttl {
+      font-size: 0.72rem;
+      color: var(--muted);
+      flex-shrink: 0;
+      white-space: nowrap;
+    }
+
+    .copy-btn {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--muted);
+      font-size: 0.7rem;
+      padding: 0.2rem 0.45rem;
+      flex-shrink: 0;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .copy-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.25); }
+    .copy-btn.copied { color: var(--green); border-color: var(--green); }
+
+    /* Meta row */
+    .meta-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+    .meta-bar .dot { color: var(--green); margin-right: 0.35rem; }
+    .meta-bar .dot.err { color: var(--orange); }
+
+    /* Empty / error states */
+    .state-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      color: var(--muted);
+      font-size: 0.9rem;
+      line-height: 1.6;
+    }
+    .state-card .icon { font-size: 2rem; margin-bottom: 0.75rem; display: block; }
+    .state-card strong { color: var(--text); }
+
+    /* Spinner */
+    .spinner {
+      width: 18px; height: 18px;
+      border: 2px solid var(--border);
+      border-top-color: var(--indigo);
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+      margin: 0 auto;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 2rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.75rem;
+      color: var(--muted);
+      font-size: 0.85rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="cursor" id="cursor"></div>
+
+  <div class="blob blob-1"></div>
+  <div class="blob blob-2"></div>
+  <div class="blob blob-3"></div>
+
+  <div class="wrap">
+    <header>
+      <div class="logo">dns<em>lookup</em></div>
+      <a class="back" href="../index.html">← back</a>
+    </header>
+
+    <div class="search-row">
+      <input
+        class="domain-input"
+        id="domainInput"
+        type="text"
+        placeholder="example.com"
+        autocomplete="off"
+        autocapitalize="off"
+        spellcheck="false"
+      >
+      <button class="lookup-btn" id="lookupBtn">Lookup</button>
+    </div>
+
+    <div class="type-tabs" id="typeTabs"></div>
+
+    <div id="metaBar" class="meta-bar" style="display:none"></div>
+    <div id="results"></div>
+  </div>
+
+  <script>
+    const TYPES = ['ALL', 'A', 'AAAA', 'MX', 'NS', 'TXT', 'CNAME', 'CAA', 'SOA', 'SRV'];
+    const ALL_QUERY_TYPES = ['A', 'AAAA', 'MX', 'NS', 'TXT', 'CNAME', 'CAA', 'SOA'];
+
+    const TYPE_INFO = {
+      A:     'Maps a domain to an IPv4 address. This is the most common record — it\'s how browsers find the server behind a domain.',
+      AAAA:  'Maps a domain to an IPv6 address. Same purpose as A records but for the newer IPv6 protocol.',
+      MX:    'Specifies which mail servers handle email for this domain. The number is a priority — lower is preferred.',
+      NS:    'Nameserver records. These delegate DNS authority for the domain to specific DNS servers.',
+      TXT:   'Free-form text records. Commonly used for domain verification (Google, GitHub), SPF anti-spam rules, and DKIM email signing keys.',
+      CNAME: 'An alias that points one domain name to another. The target is resolved further until an A/AAAA record is found.',
+      CAA:   'Certification Authority Authorization — specifies which certificate authorities (e.g. Let\'s Encrypt) are allowed to issue TLS certs for this domain.',
+      SOA:   'Start of Authority — contains administrative info about the zone: primary nameserver, contact email, serial number, and refresh timings.',
+      SRV:   'Service records. Used to locate specific services (e.g. SIP, XMPP) with host, port, priority, and weight.',
+    };
+
+    let activeType = 'ALL';
+    let lastDomain = '';
+    let lastResults = {};
+
+    // Cursor
+    const cursor = document.getElementById('cursor');
+    document.addEventListener('mousemove', e => {
+      cursor.style.transform = `translate(${e.clientX - 4}px, ${e.clientY - 4}px)`;
+    });
+
+    // Build tabs
+    const tabsEl = document.getElementById('typeTabs');
+    TYPES.forEach(t => {
+      const btn = document.createElement('button');
+      btn.className = 'type-tab' + (t === 'ALL' ? ' active' : '');
+      btn.textContent = t;
+      btn.addEventListener('click', () => {
+        activeType = t;
+        tabsEl.querySelectorAll('.type-tab').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        if (lastDomain) runLookup();
+      });
+      tabsEl.appendChild(btn);
+    });
+
+    // Input / button wiring
+    const domainInput = document.getElementById('domainInput');
+    const lookupBtn   = document.getElementById('lookupBtn');
+
+    lookupBtn.addEventListener('click', () => {
+      lastDomain = domainInput.value.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/$/, '');
+      if (lastDomain) runLookup();
+    });
+
+    domainInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') lookupBtn.click();
+    });
+
+    // Focus input on load
+    domainInput.focus();
+
+    async function queryDNS(domain, type) {
+      const url = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(domain)}&type=${type}`;
+      const res = await fetch(url, { headers: { Accept: 'application/dns-json' } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return res.json();
+    }
+
+    async function runLookup() {
+      const domain = lastDomain;
+      if (!domain) return;
+
+      lookupBtn.disabled = true;
+      showLoading(domain);
+
+      const typesToQuery = activeType === 'ALL' ? ALL_QUERY_TYPES : [activeType];
+      const start = performance.now();
+
+      try {
+        const responses = await Promise.all(typesToQuery.map(t => queryDNS(domain, t).catch(() => null)));
+        const elapsed = Math.round(performance.now() - start);
+
+        const grouped = {};
+        let totalRecords = 0;
+        let nxdomain = false;
+
+        responses.forEach((data, i) => {
+          const type = typesToQuery[i];
+          if (!data) return;
+          if (data.Status === 3) { nxdomain = true; return; }
+          if (!data.Answer) return;
+          const records = data.Answer.filter(r => r.type === typeToNum(type));
+          if (records.length) {
+            grouped[type] = records;
+            totalRecords += records.length;
+          }
+        });
+
+        lastResults = grouped;
+        renderResults(domain, grouped, totalRecords, elapsed, nxdomain);
+      } catch (err) {
+        renderError(err.message);
+      } finally {
+        lookupBtn.disabled = false;
+      }
+    }
+
+    function typeToNum(type) {
+      const map = { A:1, NS:2, CNAME:5, SOA:6, MX:15, TXT:16, AAAA:28, SRV:33, CAA:257 };
+      return map[type] ?? -1;
+    }
+
+    function formatTTL(seconds) {
+      if (seconds < 60)   return `${seconds}s`;
+      if (seconds < 3600) return `${Math.round(seconds/60)}m`;
+      return `${Math.round(seconds/3600)}h`;
+    }
+
+    function formatValue(record, type) {
+      let v = record.data;
+      if (type === 'TXT') v = v.replace(/^"|"$/g, '');
+      if (type === 'MX')  v = v.replace(/^\d+ /, match => `<span style="color:var(--muted);margin-right:.35rem">${match.trim()}</span> `);
+      return v;
+    }
+
+    function showLoading(domain) {
+      document.getElementById('metaBar').style.display = 'none';
+      document.getElementById('results').innerHTML = `
+        <div class="loading-card">
+          <div class="spinner"></div>
+          Querying records for <span style="font-family:monospace;color:var(--text);margin-left:.2rem">${domain}</span>
+        </div>`;
+    }
+
+    function renderError(msg) {
+      document.getElementById('metaBar').style.display = 'none';
+      document.getElementById('results').innerHTML = `
+        <div class="state-card">
+          <span class="icon">⚠️</span>
+          <strong>Query failed</strong><br>${msg}
+        </div>`;
+    }
+
+    function renderResults(domain, grouped, total, elapsed, nxdomain) {
+      const metaBar = document.getElementById('metaBar');
+      const resultsEl = document.getElementById('results');
+
+      if (nxdomain && total === 0) {
+        metaBar.style.display = 'none';
+        resultsEl.innerHTML = `
+          <div class="state-card">
+            <span class="icon">🔍</span>
+            <strong>${domain}</strong> — NXDOMAIN<br>
+            This domain does not exist.
+          </div>`;
+        return;
+      }
+
+      metaBar.style.display = 'flex';
+      metaBar.innerHTML = `
+        <span><span class="dot">●</span> ${domain} — ${total} record${total !== 1 ? 's' : ''}</span>
+        <span>${elapsed}ms via Cloudflare DoH</span>`;
+
+      if (total === 0) {
+        resultsEl.innerHTML = `
+          <div class="state-card">
+            <span class="icon">📭</span>
+            No <strong>${activeType}</strong> records found for <strong>${domain}</strong>
+          </div>`;
+        return;
+      }
+
+      const html = Object.entries(grouped).map(([type, records]) => `
+        <div class="record-group">
+          <div class="group-header">
+            <span class="type-badge badge-${type}">${type}</span>
+            <span class="group-count">${records.length} record${records.length !== 1 ? 's' : ''}</span>
+          </div>
+          ${TYPE_INFO[type] ? `<div class="group-desc">${TYPE_INFO[type]}</div>` : ''}
+          ${records.map(r => `
+            <div class="record-row">
+              <span class="record-value">${formatValue(r, type)}</span>
+              <span class="record-ttl">TTL ${formatTTL(r.TTL)}</span>
+              <button class="copy-btn" onclick="copyValue(this, '${r.data.replace(/'/g, "\\'")}')">copy</button>
+            </div>
+          `).join('')}
+        </div>
+      `).join('');
+
+      resultsEl.innerHTML = `<div class="results">${html}</div>`;
+    }
+
+    function copyValue(btn, value) {
+      navigator.clipboard.writeText(value.replace(/^"|"$/g, '')).then(() => {
+        btn.textContent = 'copied!';
+        btn.classList.add('copied');
+        setTimeout(() => {
+          btn.textContent = 'copy';
+          btn.classList.remove('copied');
+        }, 1500);
+      });
+    }
+  </script>
+</body>
+</html>
