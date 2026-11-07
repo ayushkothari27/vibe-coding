@@ -134,6 +134,29 @@
     .rules b { font-weight: 600; }
     .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 0.3rem; }
 
+    .modes {
+      display: inline-flex;
+      gap: 4px;
+      padding: 4px;
+      margin: 0 0 1.1rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+    }
+    .mode {
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      font-size: 0.82rem;
+      font-weight: 600;
+      padding: 0.4rem 1.1rem;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .mode.on { background: rgba(255,255,255,0.1); color: var(--text); }
+    .hint a { color: var(--muted); }
+
     .lines { display: grid; gap: 0.35rem; margin: 0 0 1.2rem; font-size: 0.88rem; }
     .lines div { display: flex; justify-content: space-between; color: var(--muted); }
     .lines div span:last-child { color: var(--text); font-weight: 600; }
@@ -178,7 +201,7 @@
 // ─────────────────────────────────────────────────
 //  SETTINGS
 // ─────────────────────────────────────────────────
-const TARGET      = 0.70;   // share of the field to claim
+const TARGET      = 0.85;   // share of the field to claim
 const CAPTURE_MAX = 0.04;   // pens this small (or smaller) capture the sparks inside
 const FENCE_SPEED = 20;     // cells per second, per arm
 const MAX_HEARTS  = 5;
@@ -269,8 +292,16 @@ const sfx = {
 // ─────────────────────────────────────────────────
 //  STORAGE (best score; optional)
 // ─────────────────────────────────────────────────
-function loadBest() { try { return +localStorage.getItem('corral-best') || 0; } catch { return 0; } }
-function saveBest(v) { try { localStorage.setItem('corral-best', String(v)); } catch {} }
+// Simple mode: identical sparks, click to build, no captures.
+let simple = false;
+try { simple = localStorage.getItem('corral-mode') === 'simple'; } catch {}
+function setMode(isSimple) {
+  simple = isSimple;
+  try { localStorage.setItem('corral-mode', simple ? 'simple' : 'corral'); } catch {}
+}
+const bestKey = () => simple ? 'corral-best-simple' : 'corral-best';
+function loadBest() { try { return +localStorage.getItem(bestKey()) || 0; } catch { return 0; } }
+function saveBest(v) { try { localStorage.setItem(bestKey(), String(v)); } catch {} }
 
 // ─────────────────────────────────────────────────
 //  GAME STATE
@@ -293,6 +324,7 @@ function newGame() {
 }
 
 function sparkMix(level) {
+  if (simple) return Array(level + 1).fill('ember');
   const list = ['ember', 'ember'];
   if (level >= 2) list.push('dart');
   if (level >= 3) list.push('boulder');
@@ -458,7 +490,7 @@ function settle() {
 
   let claimed = 0, captured = 0;
   for (const r of regions) {
-    const small = r.cells.length <= CAPTURE_MAX * G.interior;
+    const small = !simple && r.cells.length <= CAPTURE_MAX * G.interior;
     if (r.sparks.length && !small) continue;
     let n = 0, sx = 0, sy = 0;
     for (const [x, y] of r.cells) { if (setSolid(x, y)) n++; sx += x; sy += y; }
@@ -576,18 +608,31 @@ const dot = c => `<span class="dot" style="background:${c};box-shadow:0 0 8px ${
 function showMenu() {
   state = 'menu';
   const best = loadBest();
+  const rules = simple ? `
+      <div>${dot(C.yellow)}<span><b>Click or tap</b> to build a fence. <b>Right-click</b>, <b>space</b> or <b>↔ / ↕</b> flips its direction.</span></div>
+      <div>${dot(C.green)}<span>Pens with no sparks fill in. Claim <b>${Math.round(TARGET * 100)}%</b> to clear the field.</span></div>
+      <div>${dot(C.orange)}<span>Each field adds one more spark.</span></div>` : `
+      <div>${dot(C.yellow)}<span><b>Swipe or drag</b> to build a fence that way. A plain click or tap uses <b>↔ / ↕</b> (space or right-click flips it).</span></div>
+      <div>${dot(C.green)}<span>Pens with no sparks fill in. Claim <b>${Math.round(TARGET * 100)}%</b> to clear the field.</span></div>
+      <div>${dot(C.orange)}<span>Trap sparks in a <b>tiny pen</b> to corral them for big points.</span></div>
+      <div>${dot(C.pink)}<span>Ghosts slip through fences that are still growing.</span></div>`;
   showCard(`
     <h1>Cor<em>ral</em></h1>
     <p class="sub">Fence in the field. Don't let a spark touch your fence while it's building.</p>
-    <div class="rules">
-      <div>${dot(C.yellow)}<span><b>Swipe or drag</b> to build a fence that way. A plain click or tap uses <b>↔ / ↕</b> (space or right-click flips it).</span></div>
-      <div>${dot(C.green)}<span>Pens with no sparks fill in. Claim <b>70%</b> to clear the field.</span></div>
-      <div>${dot(C.orange)}<span>Trap sparks in a <b>tiny pen</b> to corral them for big points.</span></div>
-      <div>${dot(C.pink)}<span>Ghosts slip through fences that are still growing.</span></div>
+    <div class="modes">
+      <button class="mode ${simple ? '' : 'on'}" data-mode="corral">Corral</button>
+      <button class="mode ${simple ? 'on' : ''}" data-mode="simple">Simple</button>
     </div>
+    <div class="rules">${rules}</div>
     <button class="btn">Play</button>
     <p class="hint">${best ? `Best <span class="best">${best.toLocaleString()}</span> · ` : ''}M to mute</p>
   `, newGame);
+  card.querySelectorAll('.mode').forEach(b => b.addEventListener('click', e => {
+    e.stopPropagation();
+    setMode(b.dataset.mode === 'simple');
+    newLevel();
+    showMenu();
+  }));
 }
 
 function showCleared() {
@@ -615,7 +660,9 @@ function showOver(isBest, best) {
       <div><span>${isBest ? 'New best!' : 'Best'}</span><span class="best">${best.toLocaleString()}</span></div>
     </div>
     <button class="btn">Play again</button>
+    <p class="hint"><a href="#" id="to-menu">Change mode</a></p>
   `, newGame);
+  card.querySelector('#to-menu').addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); newLevel(); showMenu(); });
 }
 
 // ─────────────────────────────────────────────────
@@ -675,7 +722,7 @@ canvas.addEventListener('pointerup', e => {
   if (!pointer || pointer.id !== e.pointerId) return;
   const p = pointer;
   pointer = null;
-  const swiped = dragOrient(p, e.clientX, e.clientY);
+  const swiped = simple ? null : dragOrient(p, e.clientX, e.clientY);
   if (swiped) { G.orient = swiped; updateHUD(); }
   const [cx, cy] = toCell(p.x, p.y);
   startFence(cx, cy, G.orient);
@@ -749,7 +796,7 @@ function drawPreview() {
   let src = null, orient = G.orient;
   if (pointer) {
     src = pointer;
-    if (pointer.cur) orient = dragOrient(pointer, pointer.cur.x, pointer.cur.y) || G.orient;
+    if (pointer.cur && !simple) orient = dragOrient(pointer, pointer.cur.x, pointer.cur.y) || G.orient;
   } else if (hover) {
     src = hover;
   }
