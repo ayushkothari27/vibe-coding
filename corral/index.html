@@ -1,0 +1,872 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Corral</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,700;1,9..144,400&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:      #1A1A2E;
+      --orange:  #C8572E;
+      --yellow:  #C99A30;
+      --green:   #3A8F72;
+      --indigo:  #6366F1;
+      --pink:    #B85C8A;
+      --purple:  #7A5BB0;
+      --muted:   #9CA3AF;
+      --surface: rgba(255,255,255,0.05);
+      --border:  rgba(255,255,255,0.09);
+      --text:    #F9FAFB;
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Space Grotesk', sans-serif;
+      overflow: hidden;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    canvas { display: block; position: fixed; inset: 0; width: 100vw; height: 100svh; }
+
+    /* ── HUD ─────────────────────────────── */
+    #hud {
+      position: fixed;
+      top: max(10px, env(safe-area-inset-top, 0px));
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      align-items: center;
+      gap: 1.1rem;
+      padding: 0.5rem 1.1rem;
+      background: rgba(26,26,46,0.85);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 0.8rem;
+      white-space: nowrap;
+      z-index: 5;
+    }
+    .stat { display: flex; align-items: baseline; gap: 0.4rem; }
+    .stat .k { font-size: 0.62rem; letter-spacing: 0.08em; color: var(--muted); font-weight: 500; }
+    .stat .v { font-weight: 700; font-size: 0.95rem; }
+    #hearts { letter-spacing: 0.1em; color: var(--orange); font-size: 0.9rem; }
+
+    .bar {
+      position: relative;
+      width: 84px; height: 6px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 3px;
+      overflow: visible;
+    }
+    .bar-fill { height: 100%; width: 0; background: var(--green); border-radius: 3px; transition: width 0.3s ease; }
+    .bar-target { position: absolute; top: -3px; width: 2px; height: 12px; background: var(--yellow); border-radius: 1px; }
+
+    #orient {
+      width: 30px; height: 30px;
+      border-radius: 50%;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      font: inherit;
+      font-size: 0.95rem;
+      cursor: pointer;
+    }
+    #orient:hover { border-color: rgba(255,255,255,0.2); }
+
+    @media (max-width: 560px) {
+      #hud { gap: 0.7rem; padding: 0.45rem 0.8rem; }
+      .stat .k { display: none; }
+      .bar { width: 52px; }
+    }
+
+    /* ── Cards (menu / cleared / game over) ─ */
+    #overlay {
+      position: fixed; inset: 0;
+      display: flex; align-items: center; justify-content: center;
+      padding: 16px;
+      background: rgba(26,26,46,0.55);
+      backdrop-filter: blur(3px);
+      z-index: 10;
+    }
+    #overlay.hidden { display: none; }
+
+    .card {
+      position: relative;
+      width: min(420px, 100%);
+      background: rgba(26,26,46,0.96);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 1.8rem 1.6rem 1.5rem;
+      text-align: center;
+      overflow: hidden;
+    }
+    .card::before {
+      content: '';
+      position: absolute;
+      width: 260px; height: 260px;
+      top: -120px; right: -90px;
+      background: var(--yellow);
+      border-radius: 50%;
+      filter: blur(80px);
+      opacity: 0.18;
+      pointer-events: none;
+    }
+    .card h1 {
+      font-family: 'Fraunces', Georgia, serif;
+      font-size: 2.1rem;
+      letter-spacing: -0.01em;
+      margin-bottom: 0.3rem;
+    }
+    .card h1 em { font-style: italic; font-weight: 400; color: var(--yellow); }
+    .card .sub { color: var(--muted); font-size: 0.88rem; margin-bottom: 1.2rem; }
+
+    .rules { text-align: left; display: grid; gap: 0.55rem; margin: 0 0 1.3rem; font-size: 0.85rem; }
+    .rules div { display: flex; gap: 0.6rem; align-items: flex-start; }
+    .rules b { font-weight: 600; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; margin-top: 0.3rem; }
+
+    .lines { display: grid; gap: 0.35rem; margin: 0 0 1.2rem; font-size: 0.88rem; }
+    .lines div { display: flex; justify-content: space-between; color: var(--muted); }
+    .lines div span:last-child { color: var(--text); font-weight: 600; }
+    .lines .total { border-top: 1px solid var(--border); padding-top: 0.45rem; margin-top: 0.2rem; }
+    .lines .total span { color: var(--text) !important; font-weight: 700; }
+
+    .btn {
+      display: inline-block;
+      padding: 0.75rem 2rem;
+      border-radius: 999px;
+      border: none;
+      background: var(--orange);
+      color: var(--text);
+      font: inherit;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: transform 0.12s ease, filter 0.12s ease;
+    }
+    .btn:hover { filter: brightness(1.1); transform: translateY(-1px); }
+    .hint { margin-top: 0.9rem; font-size: 0.75rem; color: var(--muted); }
+    .best { color: var(--yellow); font-weight: 600; }
+  </style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div class="stat"><span class="k">FIELD</span><span class="v" id="level">1</span></div>
+  <div class="stat"><span class="k">CLAIMED</span><span class="v" id="pct">0%</span>
+    <div class="bar"><div class="bar-fill" id="bar"></div><div class="bar-target" id="target"></div></div>
+  </div>
+  <div class="stat"><span class="k">SCORE</span><span class="v" id="score">0</span></div>
+  <div class="stat"><span id="hearts">♥♥♥</span></div>
+  <button id="orient" title="Fence direction (space or right-click)">↔</button>
+</div>
+
+<div id="overlay"><div class="card" id="card"></div></div>
+
+<script>
+// ─────────────────────────────────────────────────
+//  SETTINGS
+// ─────────────────────────────────────────────────
+const TARGET      = 0.70;   // share of the field to claim
+const CAPTURE_MAX = 0.04;   // pens this small (or smaller) capture the sparks inside
+const FENCE_SPEED = 20;     // cells per second, per arm
+const MAX_HEARTS  = 5;
+
+const C = {
+  bg:     '#1A1A2E',
+  orange: '#C8572E',
+  yellow: '#C99A30',
+  green:  '#3A8F72',
+  indigo: '#6366F1',
+  pink:   '#B85C8A',
+  purple: '#7A5BB0',
+  muted:  '#9CA3AF',
+  white:  '#F9FAFB',
+};
+
+// Radius in cells, speed in cells per second.
+const TYPES = {
+  ember:   { name: 'Ember',   r: 0.42, speed: 9,  core: C.orange, glow: C.yellow },
+  dart:    { name: 'Dart',    r: 0.30, speed: 14, core: C.yellow, glow: C.white  },
+  boulder: { name: 'Boulder', r: 0.62, speed: 6,  core: C.indigo, glow: C.purple },
+  ghost:   { name: 'Ghost',   r: 0.42, speed: 8,  core: C.white,  glow: C.pink, ghost: true },
+};
+
+// ─────────────────────────────────────────────────
+//  CANVAS
+// ─────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W = 0, H = 0, DPR = 1;
+let cell = 16, ox = 0, oy = 0;   // field layout in CSS pixels
+
+function resize() {
+  DPR = Math.min(window.devicePixelRatio || 1, 2);
+  W = window.innerWidth;
+  H = window.innerHeight;
+  canvas.width = Math.round(W * DPR);
+  canvas.height = Math.round(H * DPR);
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  layoutField();
+}
+
+function layoutField() {
+  if (!G.cols) return;
+  const top = 64, pad = 14, bottom = 14;
+  cell = Math.max(6, Math.floor(Math.min((W - pad * 2) / G.cols, (H - top - bottom) / G.rows)));
+  ox = Math.round((W - cell * G.cols) / 2);
+  oy = Math.round(top + (H - top - bottom - cell * G.rows) / 2);
+}
+
+// ─────────────────────────────────────────────────
+//  AUDIO
+// ─────────────────────────────────────────────────
+let AC = null, muted = false;
+
+function ensureAudio() {
+  if (AC) return;
+  try {
+    AC = new (window.AudioContext || window.webkitAudioContext)();
+    const comp = AC.createDynamicsCompressor();
+    comp.connect(AC.destination);
+    AC._out = comp;
+  } catch { AC = null; }
+}
+
+function tone(freq, dur, { type = 'sine', vol = 0.15, to = null, delay = 0 } = {}) {
+  if (!AC || muted) return;
+  const t = AC.currentTime + delay;
+  const osc = AC.createOscillator(), g = AC.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t);
+  if (to) osc.frequency.exponentialRampToValueAtTime(to, t + dur);
+  g.gain.setValueAtTime(vol, t);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  osc.connect(g); g.connect(AC._out);
+  osc.start(t); osc.stop(t + dur + 0.02);
+}
+
+const sfx = {
+  start:   () => tone(420, 0.08, { type: 'triangle', vol: 0.12, to: 640 }),
+  seal:    () => { tone(523, 0.12, { vol: 0.12 }); tone(784, 0.18, { vol: 0.1, delay: 0.06 }); },
+  snap:    () => tone(180, 0.35, { type: 'sawtooth', vol: 0.18, to: 50 }),
+  capture: () => [659, 784, 988, 1319].forEach((f, i) => tone(f, 0.14, { vol: 0.1, delay: i * 0.05 })),
+  clear:   () => [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.25, { type: 'triangle', vol: 0.12, delay: i * 0.09 })),
+  over:    () => [330, 247, 196].forEach((f, i) => tone(f, 0.35, { type: 'triangle', vol: 0.14, delay: i * 0.12 })),
+};
+
+// ─────────────────────────────────────────────────
+//  STORAGE (best score; optional)
+// ─────────────────────────────────────────────────
+function loadBest() { try { return +localStorage.getItem('corral-best') || 0; } catch { return 0; } }
+function saveBest(v) { try { localStorage.setItem('corral-best', String(v)); } catch {} }
+
+// ─────────────────────────────────────────────────
+//  GAME STATE
+// ─────────────────────────────────────────────────
+let state = 'menu';   // menu | playing | cleared | over
+const G = {
+  level: 1, score: 0, hearts: 3,
+  cols: 0, rows: 0, grid: null, fillAt: null, interior: 0, filled: 0,
+  sparks: [], fence: null, orient: 'h', floaters: [], levelStart: 0, clearInfo: null,
+};
+
+const idx = (x, y) => y * G.cols + x;
+const solid = (x, y) => x < 0 || y < 0 || x >= G.cols || y >= G.rows || G.grid[idx(x, y)] === 1;
+const now = () => performance.now() / 1000;
+const rand = (a, b) => a + Math.random() * (b - a);
+
+function newGame() {
+  G.level = 1; G.score = 0; G.hearts = 3;
+  newLevel();
+}
+
+function sparkMix(level) {
+  const list = ['ember', 'ember'];
+  if (level >= 2) list.push('dart');
+  if (level >= 3) list.push('boulder');
+  if (level >= 4) list.push('ghost');
+  const pool = level >= 4 ? ['ember', 'dart', 'boulder', 'ghost'] : ['ember', 'dart', 'boulder'];
+  while (list.length < level + 1) list.push(pool[Math.floor(Math.random() * pool.length)]);
+  return list.slice(0, level + 1);
+}
+
+function newLevel() {
+  // Landscape screens get a wide field, phones in portrait a tall one.
+  const portrait = H > W * 1.1;
+  G.cols = portrait ? 24 : 48;
+  G.rows = portrait ? 38 : 30;
+  G.grid = new Uint8Array(G.cols * G.rows);
+  G.fillAt = new Float32Array(G.cols * G.rows);
+  for (let x = 0; x < G.cols; x++) { G.grid[idx(x, 0)] = 1; G.grid[idx(x, G.rows - 1)] = 1; }
+  for (let y = 0; y < G.rows; y++) { G.grid[idx(0, y)] = 1; G.grid[idx(G.cols - 1, y)] = 1; }
+  G.interior = (G.cols - 2) * (G.rows - 2);
+  G.filled = 0;
+  G.fence = null;
+  G.floaters = [];
+
+  // Sparks start spread out, heading diagonally (never straight along a wall).
+  const speedUp = 1 + Math.min(0.4, (G.level - 1) * 0.05);
+  G.sparks = sparkMix(G.level).map(type => {
+    const t = TYPES[type];
+    const angle = Math.PI / 4 + Math.floor(rand(0, 4)) * Math.PI / 2 + rand(-0.3, 0.3);
+    const speed = t.speed * speedUp;
+    return {
+      type, r: t.r,
+      x: rand(3, G.cols - 3), y: rand(3, G.rows - 3),
+      vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
+      trail: [],
+    };
+  });
+
+  G.levelStart = now();
+  layoutField();
+  updateHUD();
+  state = 'playing';
+  hideCard();
+}
+
+// ─────────────────────────────────────────────────
+//  FENCES
+// ─────────────────────────────────────────────────
+// A fence starts in one cell and grows two arms in opposite directions.
+// A spark touching a growing arm snaps it (ghosts slip through instead).
+// A finished arm turns solid; when both arms are settled, empty pens fill in.
+function startFence(cx, cy, orient) {
+  if (state !== 'playing' || G.fence) return;
+  if (solid(cx, cy)) return;
+  const dx = orient === 'h' ? 1 : 0, dy = orient === 'v' ? 1 : 0;
+  G.fence = {
+    x: cx, y: cy, dx, dy,
+    arms: [-1, 1].map(dir => ({ dir, n: 0, acc: 0, done: false, alive: true })),
+  };
+  sfx.start();
+}
+
+function armCells(f, arm) {
+  const cells = [];
+  for (let k = 0; k <= arm.n; k++) cells.push([f.x + f.dx * arm.dir * k, f.y + f.dy * arm.dir * k]);
+  return cells;
+}
+
+/** Rectangle covered by a growing arm, in cell units (includes the partly grown head). */
+function armRect(f, arm) {
+  const len = arm.n + arm.acc;
+  if (f.dx) {
+    const x0 = arm.dir > 0 ? f.x : f.x + 1 - (1 + len);
+    return { x: x0, y: f.y, w: 1 + len, h: 1 };
+  }
+  const y0 = arm.dir > 0 ? f.y : f.y + 1 - (1 + len);
+  return { x: f.x, y: y0, w: 1, h: 1 + len };
+}
+
+function circleHitsRect(cx, cy, r, rc) {
+  const nx = Math.max(rc.x, Math.min(cx, rc.x + rc.w));
+  const ny = Math.max(rc.y, Math.min(cy, rc.y + rc.h));
+  return (cx - nx) ** 2 + (cy - ny) ** 2 < r * r;
+}
+
+function updateFence(dt) {
+  const f = G.fence;
+  if (!f) return;
+
+  for (const arm of f.arms) {
+    if (!arm.alive || arm.done) continue;
+    arm.acc += FENCE_SPEED * dt;
+    while (arm.acc >= 1) {
+      const nx = f.x + f.dx * arm.dir * (arm.n + 1);
+      const ny = f.y + f.dy * arm.dir * (arm.n + 1);
+      if (solid(nx, ny)) { arm.acc = 0; arm.done = true; break; }
+      arm.n++; arm.acc -= 1;
+    }
+    if (arm.done) {
+      // Finished arms turn solid right away so sparks bounce off them.
+      for (const [x, y] of armCells(f, arm)) setSolid(x, y);
+      continue;
+    }
+    // Snap check.
+    const rc = armRect(f, arm);
+    for (const s of G.sparks) {
+      if (TYPES[s.type].ghost) continue;
+      if (circleHitsRect(s.x, s.y, s.r, rc)) {
+        arm.alive = false;
+        loseHeart(f.x + 0.5 + f.dx * arm.dir * arm.n * 0.5, f.y + 0.5 + f.dy * arm.dir * arm.n * 0.5);
+        break;
+      }
+    }
+  }
+
+  if (state !== 'playing') return;   // the last heart just went
+  if (f.arms.every(a => a.done || !a.alive)) {
+    const sealed = f.arms.some(a => a.done && a.alive);
+    G.fence = null;
+    if (sealed) settle();
+  }
+}
+
+function setSolid(x, y) {
+  const i = idx(x, y);
+  if (G.grid[i] === 1) return false;
+  G.grid[i] = 1;
+  G.fillAt[i] = now();
+  G.filled++;
+  return true;
+}
+
+function loseHeart(cx, cy) {
+  G.hearts--;
+  sfx.snap();
+  addFloater('snap!', cx, cy, C.orange);
+  updateHUD();
+  if (G.hearts <= 0) gameOver();
+}
+
+/** Fills every pen with no sparks, and captures sparks in pens that are small enough. */
+function settle() {
+  const region = new Int32Array(G.cols * G.rows).fill(-1);
+  const regions = [];
+  for (let y = 1; y < G.rows - 1; y++) {
+    for (let x = 1; x < G.cols - 1; x++) {
+      if (solid(x, y) || region[idx(x, y)] !== -1) continue;
+      const id = regions.length, cells = [], stack = [[x, y]];
+      region[idx(x, y)] = id;
+      while (stack.length) {
+        const [cx, cy] = stack.pop();
+        cells.push([cx, cy]);
+        for (const [nx, ny] of [[cx + 1, cy], [cx - 1, cy], [cx, cy + 1], [cx, cy - 1]]) {
+          if (!solid(nx, ny) && region[idx(nx, ny)] === -1) { region[idx(nx, ny)] = id; stack.push([nx, ny]); }
+        }
+      }
+      regions.push({ cells, sparks: [] });
+    }
+  }
+  for (const s of G.sparks) {
+    const id = region[idx(Math.floor(s.x), Math.floor(s.y))];
+    if (id >= 0) regions[id].sparks.push(s);
+  }
+
+  let claimed = 0, captured = 0;
+  for (const r of regions) {
+    const small = r.cells.length <= CAPTURE_MAX * G.interior;
+    if (r.sparks.length && !small) continue;
+    let n = 0, sx = 0, sy = 0;
+    for (const [x, y] of r.cells) { if (setSolid(x, y)) n++; sx += x; sy += y; }
+    claimed += n;
+    const cx = sx / r.cells.length + 0.5, cy = sy / r.cells.length + 0.5;
+    if (r.sparks.length) {
+      captured += r.sparks.length;
+      G.sparks = G.sparks.filter(s => !r.sparks.includes(s));
+      addFloater(r.sparks.length > 1 ? `corralled ×${r.sparks.length}!` : 'corralled!', cx, cy, C.yellow);
+    } else if (n > 0) {
+      addFloater(`+${Math.round(n / G.interior * 100)}%`, cx, cy, C.green);
+    }
+  }
+
+  G.score += claimed * 2 * G.level + captured * 300 * G.level;
+  if (captured) sfx.capture(); else sfx.seal();
+  updateHUD();
+
+  if (G.filled / G.interior >= TARGET || G.sparks.length === 0) levelCleared();
+}
+
+// ─────────────────────────────────────────────────
+//  SPARKS
+// ─────────────────────────────────────────────────
+function moveSpark(s, dt) {
+  if (solid(Math.floor(s.x), Math.floor(s.y))) unstick(s);
+  const steps = Math.max(1, Math.ceil(Math.max(Math.abs(s.vx), Math.abs(s.vy)) * dt / 0.2));
+  const h = dt / steps;
+  for (let i = 0; i < steps; i++) {
+    const nx = s.x + s.vx * h;
+    if (blocked(nx + Math.sign(s.vx) * s.r, s.y, s.r, 'x')) s.vx = -s.vx; else s.x = nx;
+    const ny = s.y + s.vy * h;
+    if (blocked(s.x, ny + Math.sign(s.vy) * s.r, s.r, 'y')) s.vy = -s.vy; else s.y = ny;
+  }
+  s.trail.push([s.x, s.y]);
+  if (s.trail.length > 10) s.trail.shift();
+}
+
+/** Moves a spark that ended up inside solid ground to the nearest open cell. */
+function unstick(s) {
+  const fx = Math.floor(s.x), fy = Math.floor(s.y);
+  for (let d = 1; d < Math.max(G.cols, G.rows); d++) {
+    for (let y = fy - d; y <= fy + d; y++) {
+      for (let x = fx - d; x <= fx + d; x++) {
+        if (!solid(x, y)) { s.x = x + 0.5; s.y = y + 0.5; return; }
+      }
+    }
+  }
+}
+
+/** Is the leading edge of a spark (at ex/ey) touching a solid cell? */
+function blocked(ex, ey, r, axis) {
+  const spread = r * 0.75;
+  if (axis === 'x') {
+    const cx = Math.floor(ex);
+    for (let y = Math.floor(ey - spread); y <= Math.floor(ey + spread); y++) if (solid(cx, y)) return true;
+  } else {
+    const cy = Math.floor(ey);
+    for (let x = Math.floor(ex - spread); x <= Math.floor(ex + spread); x++) if (solid(x, cy)) return true;
+  }
+  return false;
+}
+
+// ─────────────────────────────────────────────────
+//  LEVEL END
+// ─────────────────────────────────────────────────
+function levelCleared() {
+  state = 'cleared';
+  G.fence = null;
+  const secs = now() - G.levelStart;
+  const timeBonus = Math.max(0, Math.round(90 - secs)) * 10 * G.level;
+  const heartBonus = G.hearts * 150;
+  const sweep = G.sparks.length === 0 ? 1000 * G.level : 0;
+  G.clearInfo = { pct: Math.round(G.filled / G.interior * 100), secs, timeBonus, heartBonus, sweep };
+  G.score += timeBonus + heartBonus + sweep;
+  updateHUD();
+  sfx.clear();
+  setTimeout(showCleared, 700);
+}
+
+function nextLevel() {
+  G.level++;
+  G.hearts = Math.min(MAX_HEARTS, G.hearts + 1);
+  newLevel();
+}
+
+function gameOver() {
+  state = 'over';
+  G.fence = null;
+  sfx.over();
+  const best = loadBest();
+  const isBest = G.score > best;
+  if (isBest) saveBest(G.score);
+  setTimeout(() => showOver(isBest, Math.max(best, G.score)), 800);
+}
+
+// ─────────────────────────────────────────────────
+//  CARDS
+// ─────────────────────────────────────────────────
+const overlay = document.getElementById('overlay');
+const card = document.getElementById('card');
+let cardAction = null;
+
+function showCard(html, action) {
+  card.innerHTML = html;
+  overlay.classList.remove('hidden');
+  cardAction = action;
+  card.querySelector('.btn')?.addEventListener('click', e => { e.stopPropagation(); runCardAction(); });
+}
+function hideCard() { overlay.classList.add('hidden'); cardAction = null; }
+function runCardAction() { ensureAudio(); const a = cardAction; if (a) a(); }
+
+const dot = c => `<span class="dot" style="background:${c};box-shadow:0 0 8px ${c}"></span>`;
+
+function showMenu() {
+  state = 'menu';
+  const best = loadBest();
+  showCard(`
+    <h1>Cor<em>ral</em></h1>
+    <p class="sub">Fence in the field. Don't let a spark touch your fence while it's building.</p>
+    <div class="rules">
+      <div>${dot(C.yellow)}<span><b>Swipe or drag</b> to build a fence that way. A plain click or tap uses <b>↔ / ↕</b> (space or right-click flips it).</span></div>
+      <div>${dot(C.green)}<span>Pens with no sparks fill in. Claim <b>70%</b> to clear the field.</span></div>
+      <div>${dot(C.orange)}<span>Trap sparks in a <b>tiny pen</b> to corral them for big points.</span></div>
+      <div>${dot(C.pink)}<span>Ghosts slip through fences that are still growing.</span></div>
+    </div>
+    <button class="btn">Play</button>
+    <p class="hint">${best ? `Best <span class="best">${best.toLocaleString()}</span> · ` : ''}M to mute</p>
+  `, newGame);
+}
+
+function showCleared() {
+  const i = G.clearInfo;
+  showCard(`
+    <h1>Field <em>${G.level}</em> cleared</h1>
+    <p class="sub">${i.sweep ? 'Every spark corralled!' : `${i.pct}% claimed in ${Math.round(i.secs)}s`}</p>
+    <div class="lines">
+      <div><span>Time bonus</span><span>+${i.timeBonus.toLocaleString()}</span></div>
+      <div><span>Hearts left</span><span>+${i.heartBonus.toLocaleString()}</span></div>
+      ${i.sweep ? `<div><span>Clean sweep</span><span>+${i.sweep.toLocaleString()}</span></div>` : ''}
+      <div class="total"><span>Score</span><span>${G.score.toLocaleString()}</span></div>
+    </div>
+    <button class="btn">Next field →</button>
+    <p class="hint">Field ${G.level + 1} adds a spark · +1 heart</p>
+  `, nextLevel);
+}
+
+function showOver(isBest, best) {
+  showCard(`
+    <h1>Fences <em>down</em></h1>
+    <p class="sub">You reached field ${G.level}.</p>
+    <div class="lines">
+      <div class="total"><span>Score</span><span>${G.score.toLocaleString()}</span></div>
+      <div><span>${isBest ? 'New best!' : 'Best'}</span><span class="best">${best.toLocaleString()}</span></div>
+    </div>
+    <button class="btn">Play again</button>
+  `, newGame);
+}
+
+// ─────────────────────────────────────────────────
+//  HUD
+// ─────────────────────────────────────────────────
+const $ = id => document.getElementById(id);
+$('target').style.left = `calc(${TARGET * 100}% - 1px)`;
+
+function updateHUD() {
+  const pct = G.interior ? G.filled / G.interior : 0;
+  $('level').textContent = G.level;
+  $('pct').textContent = Math.round(pct * 100) + '%';
+  $('bar').style.width = Math.min(100, pct * 100) + '%';
+  $('bar').style.background = pct >= TARGET ? C.yellow : C.green;
+  $('score').textContent = G.score.toLocaleString();
+  $('hearts').textContent = '♥'.repeat(Math.max(0, G.hearts)) || '–';
+  $('orient').textContent = G.orient === 'h' ? '↔' : '↕';
+}
+
+function flipOrient() {
+  G.orient = G.orient === 'h' ? 'v' : 'h';
+  updateHUD();
+}
+
+function addFloater(text, x, y, color) {
+  G.floaters.push({ text, x, y, color, t: now() });
+}
+
+// ─────────────────────────────────────────────────
+//  INPUT
+// ─────────────────────────────────────────────────
+let pointer = null;   // active press: { x, y, id }
+let hover = null;     // last mouse position (for the preview line)
+const DRAG = 14;      // px of movement that counts as a swipe
+
+const toCell = (px, py) => [Math.floor((px - ox) / cell), Math.floor((py - oy) / cell)];
+
+function dragOrient(p, x, y) {
+  const dx = x - p.x, dy = y - p.y;
+  if (Math.hypot(dx, dy) < DRAG) return null;
+  return Math.abs(dx) >= Math.abs(dy) ? 'h' : 'v';
+}
+
+canvas.addEventListener('pointerdown', e => {
+  ensureAudio();
+  if (state !== 'playing' || e.button === 2) return;
+  pointer = { x: e.clientX, y: e.clientY, id: e.pointerId };
+  canvas.setPointerCapture(e.pointerId);
+});
+
+canvas.addEventListener('pointermove', e => {
+  hover = e.pointerType === 'mouse' ? { x: e.clientX, y: e.clientY } : null;
+  if (pointer && pointer.id === e.pointerId) pointer.cur = { x: e.clientX, y: e.clientY };
+});
+
+canvas.addEventListener('pointerup', e => {
+  if (!pointer || pointer.id !== e.pointerId) return;
+  const p = pointer;
+  pointer = null;
+  const swiped = dragOrient(p, e.clientX, e.clientY);
+  if (swiped) { G.orient = swiped; updateHUD(); }
+  const [cx, cy] = toCell(p.x, p.y);
+  startFence(cx, cy, G.orient);
+});
+
+canvas.addEventListener('pointercancel', () => { pointer = null; });
+canvas.addEventListener('pointerleave', e => { if (e.pointerType === 'mouse') hover = null; });
+canvas.addEventListener('contextmenu', e => { e.preventDefault(); if (state === 'playing') flipOrient(); });
+
+$('orient').addEventListener('click', e => { e.stopPropagation(); flipOrient(); });
+$('orient').addEventListener('pointerdown', e => e.stopPropagation());
+
+window.addEventListener('keydown', e => {
+  if (e.key === 'm' || e.key === 'M') { muted = !muted; return; }
+  if (e.key === ' ' || e.key === 'Enter') {
+    e.preventDefault();
+    if (cardAction && !overlay.classList.contains('hidden')) runCardAction();
+    else if (state === 'playing' && e.key === ' ') flipOrient();
+  }
+});
+
+window.addEventListener('resize', resize);
+
+// ─────────────────────────────────────────────────
+//  DRAWING
+// ─────────────────────────────────────────────────
+function draw() {
+  ctx.fillStyle = C.bg;
+  ctx.fillRect(0, 0, W, H);
+  if (!G.cols) return;
+
+  const t = now();
+  const fw = G.cols * cell, fh = G.rows * cell;
+
+  // Field and faint grid.
+  ctx.fillStyle = 'rgba(255,255,255,0.03)';
+  ctx.fillRect(ox, oy, fw, fh);
+  ctx.strokeStyle = 'rgba(255,255,255,0.035)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let x = 1; x < G.cols; x++) { ctx.moveTo(ox + x * cell + 0.5, oy); ctx.lineTo(ox + x * cell + 0.5, oy + fh); }
+  for (let y = 1; y < G.rows; y++) { ctx.moveTo(ox, oy + y * cell + 0.5); ctx.lineTo(ox + fw, oy + y * cell + 0.5); }
+  ctx.stroke();
+
+  // Claimed land (fresh cells flash yellow, then settle to green).
+  for (let y = 0; y < G.rows; y++) {
+    for (let x = 0; x < G.cols; x++) {
+      const i = idx(x, y);
+      if (G.grid[i] !== 1) continue;
+      const border = x === 0 || y === 0 || x === G.cols - 1 || y === G.rows - 1;
+      const age = border ? 99 : t - G.fillAt[i];
+      if (age < 0.5) {
+        const k = age / 0.5;
+        ctx.fillStyle = `rgba(201,154,48,${0.75 - 0.3 * k})`;
+      } else {
+        ctx.fillStyle = border ? 'rgba(58,143,114,0.75)' : 'rgba(58,143,114,0.42)';
+      }
+      ctx.fillRect(ox + x * cell, oy + y * cell, cell + 0.5, cell + 0.5);
+    }
+  }
+
+  drawPreview();
+  drawFence(t);
+  drawSparks(t);
+  drawFloaters(t);
+}
+
+/** Dashed guide showing where a fence would go from the cursor. */
+function drawPreview() {
+  if (state !== 'playing' || G.fence) return;
+  let src = null, orient = G.orient;
+  if (pointer) {
+    src = pointer;
+    if (pointer.cur) orient = dragOrient(pointer, pointer.cur.x, pointer.cur.y) || G.orient;
+  } else if (hover) {
+    src = hover;
+  }
+  if (!src) return;
+  const [cx, cy] = toCell(src.x, src.y);
+  if (solid(cx, cy)) return;
+  const dx = orient === 'h' ? 1 : 0, dy = orient === 'v' ? 1 : 0;
+  let a = 0, b = 0;
+  while (!solid(cx - dx * (a + 1), cy - dy * (a + 1))) a++;
+  while (!solid(cx + dx * (b + 1), cy + dy * (b + 1))) b++;
+  const x0 = ox + (cx - dx * a) * cell, y0 = oy + (cy - dy * a) * cell;
+  const x1 = ox + (cx + dx * b + 1) * cell, y1 = oy + (cy + dy * b + 1) * cell;
+  ctx.save();
+  ctx.setLineDash([4, 5]);
+  ctx.strokeStyle = pointer ? 'rgba(201,154,48,0.7)' : 'rgba(249,250,251,0.25)';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(x0 + 1, y0 + 1, x1 - x0 - 2, y1 - y0 - 2);
+  ctx.restore();
+}
+
+function drawFence(t) {
+  const f = G.fence;
+  if (!f || state !== 'playing') return;
+  ctx.save();
+  ctx.shadowColor = C.yellow;
+  ctx.shadowBlur = 12;
+  for (const arm of f.arms) {
+    if (!arm.alive || arm.done) continue;
+    const rc = armRect(f, arm);
+    ctx.fillStyle = C.yellow;
+    ctx.fillRect(ox + rc.x * cell + 2, oy + rc.y * cell + 2, rc.w * cell - 4, rc.h * cell - 4);
+    // Bright head.
+    const hx = f.dx ? (arm.dir > 0 ? rc.x + rc.w : rc.x) : rc.x + 0.5;
+    const hy = f.dy ? (arm.dir > 0 ? rc.y + rc.h : rc.y) : rc.y + 0.5;
+    ctx.fillStyle = C.white;
+    ctx.beginPath();
+    ctx.arc(ox + hx * cell, oy + hy * cell, cell * 0.28 + Math.sin(t * 30) * 1, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+function drawSparks(t) {
+  for (const s of G.sparks) {
+    const type = TYPES[s.type];
+    const px = ox + s.x * cell, py = oy + s.y * cell, r = s.r * cell;
+    const alpha = type.ghost ? 0.45 + 0.25 * Math.sin(t * 6 + s.x) : 1;
+
+    // Trail.
+    for (let i = 0; i < s.trail.length; i++) {
+      const [tx, ty] = s.trail[i];
+      const k = (i + 1) / s.trail.length;
+      ctx.globalAlpha = 0.22 * k * alpha;
+      ctx.fillStyle = type.glow;
+      ctx.beginPath();
+      ctx.arc(ox + tx * cell, oy + ty * cell, r * k, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Glow + core.
+    ctx.globalAlpha = alpha;
+    const g = ctx.createRadialGradient(px, py, 0, px, py, r * 2.6);
+    g.addColorStop(0, type.glow + 'aa');
+    g.addColorStop(1, type.glow + '00');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(px, py, r * 2.6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = type.core;
+    ctx.beginPath();
+    ctx.arc(px, py, r, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.7)';
+    ctx.beginPath();
+    ctx.arc(px - r * 0.3, py - r * 0.3, r * 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+  }
+}
+
+function drawFloaters(t) {
+  G.floaters = G.floaters.filter(f => t - f.t < 1.4);
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  for (const f of G.floaters) {
+    const age = t - f.t;
+    ctx.globalAlpha = Math.min(1, (1.4 - age) / 0.4);
+    ctx.font = `italic 400 ${Math.max(16, cell * 1.3)}px Fraunces, Georgia, serif`;
+    ctx.fillStyle = f.color;
+    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+    ctx.shadowBlur = 6;
+    ctx.fillText(f.text, ox + f.x * cell, oy + f.y * cell - age * 24);
+  }
+  ctx.shadowBlur = 0;
+  ctx.globalAlpha = 1;
+}
+
+// ─────────────────────────────────────────────────
+//  LOOP
+// ─────────────────────────────────────────────────
+let last = 0;
+function frame(ms) {
+  const t = ms / 1000;
+  const dt = last ? Math.min(t - last, 1 / 30) : 1 / 60;   // clamp so a background tab doesn't teleport sparks
+  last = t;
+  for (const s of G.sparks) moveSpark(s, dt);   // sparks keep bouncing behind the cards too
+  if (state === 'playing') updateFence(dt);
+  draw();
+  requestAnimationFrame(frame);
+}
+
+// Start: a menu over a live field so the sparks are already bouncing behind it.
+resize();
+newLevel();
+state = 'menu';
+showMenu();
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

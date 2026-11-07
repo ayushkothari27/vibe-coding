@@ -10,5 +10,6 @@ A collection of self-contained single-file web apps, all sharing a consistent da
 | **Flaggle** | `flaggle/` | Daily flag-guessing puzzle (Wordle-style) |
 | **Focus Timer** | `pomodoro/` | Pomodoro / focus timer |
 | **Trip Countdown** | `trip-countdown/` | Countdown to an upcoming trip |
+| **Corral** | `corral/` | Fence-building arcade game: pen in bouncing sparks, works with touch |
 | **Desk — Todo** | `desk/todo/` | Minimal to-do list |
 | **Desk — Bookmarks** | `desk/bookmark/` | Personal bookmark manager |
